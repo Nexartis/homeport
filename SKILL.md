@@ -64,9 +64,12 @@ Send an API key with every delegation call:
 Authorization: Bearer nanda_<your-api-key>
 ```
 
-Hackathon evaluators and agents: request a scoped demo key from the
-operator (contact via the agent card at
-`/.well-known/agent-card.json`). Grants are authorized per-identity:
+Hackathon evaluators and agents: **generate your own free-tier key in
+under a minute** at
+[nexartisnandahacksquad.link/developers/dashboard](https://nexartisnandahacksquad.link/developers/dashboard)
+(sign up, click Generate, copy the raw `nanda_...` value once). Free
+tier is least-privilege by default (1,000 requests/month, five keys) —
+the same posture as our demo key. Grants are authorized per-identity:
 you may grant only as yourself (`granted_by_did` must match your
 authenticated identity), check only grants you issued or received, and
 revoke only grants you issued — unless your key carries `operator` or
