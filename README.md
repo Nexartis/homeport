@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="assets/homeport-cubicube-header.png"
+       alt="Homeport — open source, self-hosted, your data, your control. A lighthouse guiding the agentic web. Get it hosted, personalized, and developed at CubiCube.com"
+       width="100%" />
+</p>
+
 # Homeport
 
 **Every agent needs a homeport.**
@@ -19,7 +25,7 @@ makes them verifiable wherever they go.
 Built as a SvelteKit app on Cloudflare Workers (D1, R2, KV) —
 edge-native, one `wrangler deploy` from sovereign. A live fleet of
 Homeport nodes already runs in production, deployed one-click via
-[CubiCube](https://nexartis.com).
+[CubiCube](https://cubicube.com).
 
 ## Status: source landing now
 
