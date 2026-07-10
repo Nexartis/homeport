@@ -1,0 +1,256 @@
+/**
+ * NND-D3 — delegation.grant PUH proof enforcement.
+ *
+ * Verifies that `grantDelegation` rejects grants without a fresh, well-formed
+ * PUH proof envelope and that the server-side canonical hash matches the
+ * RC-client mobile UI (PUH-4). Uses the local D1 binding from
+ * `@cloudflare/vitest-pool-workers` so the audit-log write path runs end
+ * to end.
+ */
+import { describe, it, expect, beforeAll } from 'vitest';
+import { env } from 'cloudflare:test';
+import { createDbClient } from '../src/lib/db/client';
+import {
+	grantDelegation,
+	verifyPuhProof,
+	DelegationGrantError,
+	PUH_FRESHNESS_MS,
+	type PuhProof
+} from '../src/lib/server/delegation-grants';
+
+declare module 'cloudflare:test' {
+	interface ProvidedEnv {
+		DB: D1Database;
+	}
+}
+
+const DDL = [
+	`CREATE TABLE IF NOT EXISTS delegation_tasks (
+		id TEXT PRIMARY KEY, parent_workflow_id TEXT, parent_step_id TEXT,
+		delegator_id TEXT NOT NULL, delegate_id TEXT NOT NULL,
+		task_type TEXT NOT NULL DEFAULT 'a2a_call', action TEXT NOT NULL,
+		input_json TEXT NOT NULL DEFAULT '{}', output_json TEXT,
+		status TEXT NOT NULL DEFAULT 'pending', error_message TEXT,
+		delegation_token TEXT, timeout_ms INTEGER NOT NULL DEFAULT 30000,
+		retry_count INTEGER NOT NULL DEFAULT 0, max_retries INTEGER NOT NULL DEFAULT 3,
+		granted_scope TEXT, expires_at INTEGER, granted_by_proof_hash TEXT,
+		parent_delegation_id TEXT, revocable INTEGER NOT NULL DEFAULT 1,
+		started_at INTEGER, completed_at INTEGER,
+		created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+		updated_at INTEGER NOT NULL DEFAULT (unixepoch()))`,
+	`CREATE TABLE IF NOT EXISTS admin_audit_log (
+		id TEXT PRIMARY KEY NOT NULL,
+		event_type TEXT NOT NULL,
+		actor_user_id TEXT, actor_email TEXT,
+		target_type TEXT, target_id TEXT,
+		metadata TEXT, ip TEXT, user_agent TEXT,
+		created_at INTEGER NOT NULL DEFAULT (unixepoch()))`
+];
+
+const db = createDbClient(env.DB);
+
+beforeAll(async () => {
+	await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
+});
+
+async function sha256Hex(input: string): Promise<string> {
+	const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+	return Array.from(new Uint8Array(buf))
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+}
+
+// Mirror `canonicalProofEnvelope` from delegation-grants.ts. Duplicated
+// intentionally so a silent drift there breaks these tests loudly.
+async function computeHash(
+	proof: PuhProof,
+	subject: {
+		delegateId: string;
+		grantedScope: string[];
+		expiresAt: number;
+		parentDelegationId: string | null;
+		revocable: boolean;
+	}
+): Promise<string> {
+	const toolNames = subject.grantedScope
+		.map((s) => s.trim())
+		.filter(Boolean)
+		.sort();
+	const canonical = JSON.stringify({
+		principalPk: proof.principalPk,
+		deviceDid: proof.deviceDid,
+		requestId: proof.requestId,
+		grantee: subject.delegateId,
+		scope: { toolNames },
+		expiresAt: subject.expiresAt,
+		parentDelegationId: subject.parentDelegationId,
+		revocable: subject.revocable,
+		issuedAt: proof.issuedAt
+	});
+	return sha256Hex(canonical);
+}
+
+function freshProof(overrides: Partial<PuhProof> = {}): PuhProof {
+	const now = Date.now();
+	return {
+		principalPk: 'yz-principal-01',
+		deviceDid: 'did:key:z6Mkdevice',
+		requestId: 'yz-req-01',
+		boundAt: now - 1_000,
+		issuedAt: now - 500,
+		...overrides
+	};
+}
+
+describe('verifyPuhProof — NND-D3', () => {
+	const subject = {
+		delegateId: 'agent-delegate-1',
+		grantedScope: ['tool.echo', 'tool.summarize'],
+		expiresAt: Math.floor(Date.now() / 1000) + 3600,
+		parentDelegationId: null,
+		revocable: true
+	};
+
+	it('rejects when proof is missing', async () => {
+		await expect(
+			verifyPuhProof({ proof: null, grantedByProofHash: 'x', subject })
+		).rejects.toMatchObject({ code: 'missing-proof' });
+	});
+
+	it('rejects when proof.principalPk is empty', async () => {
+		await expect(
+			verifyPuhProof({
+				proof: freshProof({ principalPk: '' }),
+				grantedByProofHash: 'x',
+				subject
+			})
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+	});
+
+	it('rejects when the PUH binding is older than the freshness window', async () => {
+		const stale = freshProof({ boundAt: Date.now() - PUH_FRESHNESS_MS - 60_000 });
+		const hash = await computeHash(stale, subject);
+		await expect(
+			verifyPuhProof({ proof: stale, grantedByProofHash: hash, subject })
+		).rejects.toMatchObject({ code: 'puh-proof-stale' });
+	});
+
+	it('rejects when the grant issuance is older than the freshness window', async () => {
+		const stale = freshProof({ issuedAt: Date.now() - PUH_FRESHNESS_MS - 60_000 });
+		const hash = await computeHash(stale, subject);
+		await expect(
+			verifyPuhProof({ proof: stale, grantedByProofHash: hash, subject })
+		).rejects.toMatchObject({ code: 'puh-proof-stale' });
+	});
+
+	it('rejects when the hash does not bind to this subject', async () => {
+		const proof = freshProof();
+		const otherSubject = { ...subject, delegateId: 'agent-attacker' };
+		const wrongHash = await computeHash(proof, otherSubject);
+		await expect(
+			verifyPuhProof({ proof, grantedByProofHash: wrongHash, subject })
+		).rejects.toMatchObject({ code: 'proof-hash-mismatch' });
+	});
+
+	it('rejects when the hash does not bind to the scope', async () => {
+		const proof = freshProof();
+		const widened = { ...subject, grantedScope: [...subject.grantedScope, 'tool.destroy'] };
+		const wrongHash = await computeHash(proof, widened);
+		await expect(
+			verifyPuhProof({ proof, grantedByProofHash: wrongHash, subject })
+		).rejects.toMatchObject({ code: 'proof-hash-mismatch' });
+	});
+
+	it('accepts a fresh, correctly bound proof', async () => {
+		const proof = freshProof();
+		const hash = await computeHash(proof, subject);
+		await expect(
+			verifyPuhProof({ proof, grantedByProofHash: hash, subject })
+		).resolves.toBeUndefined();
+	});
+
+	it('is scope-order-insensitive (envelope sorts toolNames)', async () => {
+		const proof = freshProof();
+		const hashSorted = await computeHash(proof, subject);
+		const shuffled = { ...subject, grantedScope: [...subject.grantedScope].reverse() };
+		await expect(
+			verifyPuhProof({ proof, grantedByProofHash: hashSorted, subject: shuffled })
+		).resolves.toBeUndefined();
+	});
+});
+
+describe('grantDelegation — NND-D3 integration', () => {
+	const baseInput = () => {
+		const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+		return {
+			delegatorId: 'agent-owner-1',
+			delegateId: 'agent-delegate-2',
+			action: 'delegated',
+			grantedScope: ['tool.echo'],
+			expiresAt,
+			revocable: true
+		};
+	};
+
+	it('rejects when no proof envelope is supplied', async () => {
+		const base = baseInput();
+		const proof = freshProof();
+		const hash = await computeHash(proof, {
+			delegateId: base.delegateId,
+			grantedScope: base.grantedScope,
+			expiresAt: base.expiresAt,
+			parentDelegationId: null,
+			revocable: true
+		});
+		await expect(
+			grantDelegation(
+				db,
+				{},
+				{
+					...base,
+					grantedByProofHash: hash,
+					proof: undefined as unknown as PuhProof
+				}
+			)
+		).rejects.toBeInstanceOf(DelegationGrantError);
+	});
+
+	it('rejects when the hash does not match the proof envelope', async () => {
+		const base = baseInput();
+		const proof = freshProof();
+		await expect(
+			grantDelegation(
+				db,
+				{},
+				{
+					...base,
+					grantedByProofHash: 'deadbeef',
+					proof
+				}
+			)
+		).rejects.toMatchObject({ code: 'proof-hash-mismatch' });
+	});
+
+	it('persists a grant when the proof envelope binds correctly', async () => {
+		const base = baseInput();
+		const proof = freshProof();
+		const hash = await computeHash(proof, {
+			delegateId: base.delegateId,
+			grantedScope: base.grantedScope,
+			expiresAt: base.expiresAt,
+			parentDelegationId: null,
+			revocable: true
+		});
+		const result = await grantDelegation(
+			db,
+			{},
+			{
+				...base,
+				grantedByProofHash: hash,
+				proof
+			}
+		);
+		expect(result.delegationId).toMatch(/^del-/);
+		expect(result.expiresAt).toBe(base.expiresAt);
+	});
+});
