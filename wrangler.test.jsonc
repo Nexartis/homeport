@@ -1,0 +1,103 @@
+{
+	// ─────────────────────────────────────────────────────────────────────
+	// Vitest-only wrangler config.
+	//
+	// Mirrors the "dev" environment from wrangler.jsonc but replaces
+	// secrets_store_secrets with plain vars so miniflare can provide the
+	// values as strings instead of SecretsStoreSecret objects.
+	//
+	// DO NOT deploy with this file — it is only consumed by vitest.config.ts.
+	// ─────────────────────────────────────────────────────────────────────
+	"name": "homeport",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"compatibility_date": "2026-03-01",
+	"compatibility_flags": ["nodejs_compat"],
+
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "kym-nanda-db-dev",
+			"database_id": "__PEGASUS_PROVISION__",
+			"migrations_dir": "drizzle/migrations"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "KYM_NANDA_EVIDENCE",
+			"bucket_name": "kym-nanda-evidence-dev"
+		}
+	],
+	"queues": {
+		"producers": [
+			{
+				"binding": "KYM_CERT_QUEUE",
+				"queue": "kym-cert-queue-dev"
+			},
+			{
+				"binding": "KYM_PROBE_QUEUE",
+				"queue": "kym-probe-queue-dev"
+			},
+			{
+				"binding": "KYM_WEBHOOK_QUEUE",
+				"queue": "kym-webhook-queue-dev"
+			}
+		],
+		"consumers": [
+			{
+				"queue": "kym-cert-queue-dev",
+				"max_batch_size": 1,
+				"max_batch_timeout": 30,
+				"max_retries": 5,
+				"dead_letter_queue": "kym-cert-queue-dev-dlq"
+			},
+			{
+				"queue": "kym-probe-queue-dev",
+				"max_batch_size": 1,
+				"max_batch_timeout": 30,
+				"max_retries": 5,
+				"dead_letter_queue": "kym-probe-queue-dev-dlq"
+			},
+			{
+				"queue": "kym-webhook-queue-dev",
+				"max_batch_size": 5,
+				"max_batch_timeout": 10,
+				"max_retries": 5,
+				"dead_letter_queue": "kym-webhook-queue-dev-dlq"
+			}
+		]
+	},
+	"kv_namespaces": [
+		{
+			"binding": "NANDA_NODE_CACHE",
+			"id": "__PEGASUS_PROVISION__"
+		}
+	],
+
+	// Secrets as plain vars — resolveSecret() handles both string and
+	// SecretsStoreSecret objects, so these work identically in test code.
+	"vars": {
+		"ENVIRONMENT": "development",
+		"LOG_LEVEL": "debug",
+		"NANDA_REGISTRY_URL": "https://your-node.example.com",
+		"NANDA_ED25519_PUBLIC_KEY_v1": "MCowBQYDK2VwAyEAKYlD3CrZ41fjwnuDnrnGAWIapttsOgJZIWRDSx/NGU0=",
+		"SENTINEL_API_URL": "https://dev-sentinel.ocmeregistry.com",
+		"VITE_BASE_URL": "https://your-node.example.com",
+		"NANDA_FEDERATION_PEER_URL": "https://peer-node.example.com",
+		"CRON_AUTH_TOKEN": "test-cron-token",
+		"NANDA_FEDERATION_ADMIN_KEY": "test-admin-key",
+		"KYM_NANDA_HMAC_SECRET": "test-hmac-secret",
+		"KYM_NANDA_RADIUS_SECRET": "test-radius-secret",
+		"KYM_NANDA_ED25519_PRIVATE_KEY_v1": "MC4CAQAwBQYDK2VwBCIEIKWtEFgP01AMWwxdiZsN5ACdOTJD/+zbwsuhMrwkijLi",
+		"SITE_OWNER_EMAIL": "owner@test.local",
+		"NANDA_NODE_ID": "kym-test",
+		"PAYMENT_PAYEE": "service",
+		"CERT_VALIDITY_DAYS": "90",
+		"CERT_PASS_THRESHOLD": "0.8",
+		"NP_TO_USD_RATE": "0.001",
+		"EUR_TO_USD_RATE": "1.08"
+	}
+}

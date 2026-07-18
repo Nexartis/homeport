@@ -1,0 +1,34 @@
+# Dependencies & build output
+node_modules
+/build
+/.svelte-kit
+/package
+
+# Lockfiles
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Cloudflare
+.wrangler/
+
+# Generated / binary
+*.pdf
+*.ico
+*.png
+*.svg
+
+# AI scratch files
+.ai/
+
+# Machine-local index artifacts (never formatted)
+.codesearch.db/
+.serena/
+.chunkhound/
+
+# Drizzle migrations (hand-crafted SQL — don't reformat)
+drizzle/migrations/
+
+# Generated OpenAPI spec
+static/openapi.json
+

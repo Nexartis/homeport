@@ -1,0 +1,4 @@
+# Homeport — self-hostable NANDA node
+User-agent: *
+Allow: /
+Disallow: /admin
