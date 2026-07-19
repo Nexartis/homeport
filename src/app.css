@@ -1,0 +1,279 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* NANDA Infrastructure Services — Design System */
+
+/* Typography — self-hosted variable fonts (font-display: swap by default).
+   Bundled + hashed by Vite; no render-blocking network fetch. */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+/* Container utility */
+.container {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding: 0 1.5rem;
+}
+
+/* Gradient text utility */
+.gradient-text {
+	background: linear-gradient(135deg, #6942e6, #0cd3da);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+/* NANDA Card styles */
+.nanda-card {
+	@apply rounded-xl border border-nanda-border bg-nanda-bg-surface p-6 transition-all duration-200;
+}
+
+.nanda-card:hover {
+	@apply border-nanda-border-hover shadow-glow-primary;
+}
+
+.nanda-card-accent:hover {
+	@apply border-nanda-border-accent shadow-glow-accent;
+}
+
+/* NANDA Button styles */
+.nanda-btn {
+	@apply inline-flex items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all duration-200 cursor-pointer border-none;
+}
+
+.nanda-btn-primary {
+	@apply nanda-btn text-white;
+	background: linear-gradient(135deg, #6942e6, #0cd3da);
+}
+
+.nanda-btn-primary:hover {
+	opacity: 0.9;
+	transform: translateY(-1px);
+}
+
+.nanda-btn-secondary {
+	@apply nanda-btn text-nanda-text border border-nanda-border;
+	background: rgba(37, 37, 48, 0.6);
+}
+
+.nanda-btn-secondary:hover {
+	background: rgba(37, 37, 48, 0.9);
+	transform: translateY(-1px);
+}
+
+/* Environment badges */
+.env-badge {
+	@apply inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider;
+}
+
+.env-dev {
+	@apply bg-nanda-primary-500/20 text-nanda-primary-300 border border-nanda-primary-500/40;
+}
+
+.env-staging {
+	@apply bg-nanda-warning/20 text-nanda-warning border border-nanda-warning/40;
+}
+
+.env-test {
+	@apply bg-nanda-warning/20 text-nanda-warning border border-nanda-warning/40;
+}
+
+.env-prod {
+	@apply bg-nanda-success/20 text-nanda-success border border-nanda-success/40;
+}
+
+/* Method badges for API reference */
+.method-badge {
+	@apply inline-block rounded px-2 py-0.5 font-mono text-xs font-medium;
+}
+
+.method-GET {
+	@apply bg-nanda-success-muted text-nanda-success;
+}
+
+.method-POST {
+	@apply bg-nanda-info-muted text-nanda-info;
+}
+
+.method-PUT {
+	@apply bg-nanda-warning-muted text-nanda-warning;
+}
+
+.method-DELETE {
+	@apply bg-nanda-danger-muted text-nanda-danger;
+}
+
+/* Prose content styles */
+.prose {
+	min-width: 0;
+	max-width: 100%;
+}
+
+.prose h1 {
+	@apply text-3xl font-extrabold mb-4 gradient-text;
+}
+
+.prose h2 {
+	@apply text-xl font-bold mt-10 mb-4 pb-2 border-b border-nanda-border text-nanda-text;
+}
+
+.prose h3 {
+	@apply text-lg font-semibold mt-8 mb-3 text-nanda-text;
+}
+
+.prose p {
+	@apply text-nanda-text-muted text-[15px] leading-relaxed mb-4;
+}
+
+.prose strong {
+	@apply text-nanda-text;
+}
+
+.prose ul {
+	@apply text-nanda-text-muted text-[15px] leading-relaxed mb-4 pl-6;
+	list-style-type: disc;
+}
+
+.prose ol {
+	@apply text-nanda-text-muted text-[15px] leading-relaxed mb-4 pl-6;
+	list-style-type: decimal;
+}
+
+.prose li {
+	@apply mb-1.5;
+}
+
+.prose code {
+	@apply bg-nanda-primary-500/10 text-purple-300 px-1.5 py-0.5 rounded text-[13px];
+}
+
+.prose pre {
+	@apply bg-nanda-bg-surface border border-nanda-border rounded-xl p-5 overflow-x-auto text-[13px] leading-relaxed mb-5;
+	max-width: 100%;
+}
+
+.prose pre code {
+	@apply bg-transparent text-nanda-text-muted p-0 text-[13px];
+}
+
+/* Tables in prose: render as block-level scroll containers so wide
+   tables scroll horizontally on narrow viewports instead of forcing
+   ancestor width past the viewport. */
+.prose table {
+	display: block;
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+.prose a {
+	@apply text-nanda-accent border-b border-nanda-accent/30;
+}
+
+.prose a:hover {
+	@apply border-nanda-accent;
+}
+
+.prose blockquote {
+	@apply border-l-[3px] border-nanda-primary py-3 px-5 my-5 rounded-r-lg;
+	background: rgba(105, 66, 230, 0.05);
+}
+
+.prose blockquote p {
+	@apply text-purple-300 mb-0;
+}
+
+/* Callout boxes */
+.callout {
+	@apply rounded-xl p-5 my-5 text-sm leading-relaxed;
+}
+
+.callout strong {
+	@apply block mb-1;
+}
+
+.callout-info {
+	background: rgba(59, 130, 246, 0.08);
+	border: 1px solid rgba(59, 130, 246, 0.2);
+	color: #93c5fd;
+}
+
+.callout-tip {
+	background: rgba(34, 197, 94, 0.08);
+	border: 1px solid rgba(34, 197, 94, 0.2);
+	color: #86efac;
+}
+
+.callout-warn {
+	background: rgba(217, 119, 6, 0.08);
+	border: 1px solid rgba(217, 119, 6, 0.2);
+	color: #fcd34d;
+}
+
+/* Step list with CSS counters */
+.step-list {
+	counter-reset: steps;
+}
+
+.step-item {
+	counter-increment: steps;
+	@apply relative pl-12 mb-8;
+}
+
+.step-item::before {
+	content: counter(steps);
+	@apply absolute left-0 top-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold;
+	background: rgba(105, 66, 230, 0.15);
+	color: #6942e6;
+	border: 1px solid rgba(105, 66, 230, 0.3);
+}
+
+/* Status badge */
+.status-badge {
+	@apply inline-block rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+.status-operational {
+	background: rgba(34, 197, 94, 0.15);
+	color: #22c55e;
+	border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-stub {
+	background: rgba(217, 119, 6, 0.15);
+	color: #d97706;
+	border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+/* Code block with syntax highlighting */
+.code-block {
+	@apply bg-nanda-bg-surface border border-nanda-border rounded-xl p-6 overflow-x-auto font-mono text-[13px] leading-relaxed text-nanda-text-muted;
+}
+
+.code-block .cm {
+	color: #71717a;
+}
+.code-block .kw {
+	color: #6942e6;
+}
+.code-block .str {
+	color: #0cd3da;
+}
+.code-block .url {
+	color: #22c55e;
+}
+
+/* Feature/capability tag */
+.feat-tag {
+	@apply px-2.5 py-0.5 rounded-md text-xs;
+	background: rgba(105, 66, 230, 0.1);
+	color: #9999ff;
+	border: 1px solid rgba(105, 66, 230, 0.2);
+}
+
+.agent-tag {
+	@apply px-2 py-0.5 rounded text-[11px];
+	background: rgba(12, 211, 218, 0.1);
+	color: #0cd3da;
+	border: 1px solid rgba(12, 211, 218, 0.2);
+}

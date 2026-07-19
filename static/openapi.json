@@ -1,0 +1,2551 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Nexartis NANDA Node API",
+    "version": "1.0.0",
+    "description": "REST API for the Nexartis NANDA Node — agent registration, certification, health probes, payments, and developer key management."
+  },
+  "servers": [],
+  "paths": {
+    "/trust/badges": {
+      "get": {
+        "summary": "Trust badges",
+        "description": "Public endpoint returning trust badges computed from reputation data. Filterable by agent ID.",
+        "tags": [
+          "Trust"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "agent",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Agent ID to filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trust badges with distribution"
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "summary": "Get registry statistics",
+        "description": "Returns agent count, registration trends, and capability distribution.",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "Registry statistics"
+          }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "summary": "Search for agents",
+        "description": "Full-text search with optional capability, tag, trust, jurisdiction, and protocol filters. Supports SafeSearch mode.",
+        "tags": [
+          "Registry"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Free-text search query"
+          },
+          {
+            "in": "query",
+            "name": "capabilities",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated capability filter"
+          },
+          {
+            "in": "query",
+            "name": "tags",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated tag filter"
+          },
+          {
+            "in": "query",
+            "name": "min_trust",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Minimum trust score (SafeSearch)"
+          },
+          {
+            "in": "query",
+            "name": "jurisdiction",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Jurisdiction filter (SafeSearch)"
+          },
+          {
+            "in": "query",
+            "name": "protocol",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Protocol filter (a2a, mcp, nlweb)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of matching agents"
+          },
+          "400": {
+            "description": "Invalid filter parameter"
+          }
+        }
+      }
+    },
+    "/resolve": {
+      "post": {
+        "summary": "Adaptive agent resolution",
+        "description": "Resolves an agent to its best endpoint using multi-strategy scoring (latency, trust, protocol, geo).",
+        "tags": [
+          "Resolution"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "agent_id"
+                ],
+                "properties": {
+                  "agent_id": {
+                    "type": "string"
+                  },
+                  "context": {
+                    "type": "object",
+                    "properties": {
+                      "preferred_protocol": {
+                        "type": "string",
+                        "enum": [
+                          "a2a",
+                          "mcp",
+                          "nlweb"
+                        ]
+                      },
+                      "caller_region": {
+                        "type": "string"
+                      },
+                      "min_trust": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ranked resolution results"
+          },
+          "400": {
+            "description": "Missing agent_id"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      }
+    },
+    "/resolve/{agent_id}": {
+      "get": {
+        "summary": "Resolve agent via Lean Index",
+        "description": "Returns signed AgentAddr record with endpoint URL, trust score, and Ed25519 signature.",
+        "tags": [
+          "Resolution"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Signed AgentAddr"
+          },
+          "404": {
+            "description": "Agent not indexed"
+          }
+        }
+      }
+    },
+    "/reputation": {
+      "get": {
+        "summary": "Get agent reputation scores",
+        "description": "Returns reputation snapshots merged with certification grades for all agents.",
+        "tags": [
+          "Trust"
+        ],
+        "responses": {
+          "200": {
+            "description": "Reputation data for all agents"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      }
+    },
+    "/register": {
+      "post": {
+        "summary": "Register or update an agent",
+        "description": "Upsert an agent registration. Auto-creates a Lean Index AgentAddr for DNS-like resolution.",
+        "tags": [
+          "Registry"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "agent_id",
+                  "agent_url"
+                ],
+                "properties": {
+                  "agent_id": {
+                    "type": "string",
+                    "description": "Unique agent identifier"
+                  },
+                  "agent_url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Primary URL of the agent"
+                  },
+                  "api_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "facts_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "auto_discover": {
+                    "type": "boolean",
+                    "description": "When true, auto-discover protocols at agent_url"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent registered successfully"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/owner-preferences": {
+      "get": {
+        "summary": "Signed owner-preferences approval policy",
+        "description": "Returns the operator's approval policy wrapped in an Ed25519 signature\n(NND-D2). Consumed by Remote-Control clients (G8) at connect. Clients\nverify the signature against `/.well-known/keys/ed25519-v{n}` and\napply the policy per §7 of the RC client ARCHITECTURE. TTL 60 s.\n",
+        "tags": [
+          "Discovery"
+        ],
+        "responses": {
+          "200": {
+            "description": "Signed owner-preferences envelope"
+          },
+          "503": {
+            "description": "Node signing key not configured"
+          }
+        }
+      }
+    },
+    "/mcp": {
+      "post": {
+        "summary": "MCP tool server",
+        "description": "JSON-RPC 2.0 Model Context Protocol endpoint. Supports tools/list and tools/call.\nAvailable tools: nanda_lookup_agent, nanda_search_agents, nanda_list_agents,\nnanda_get_reputation, nanda_check_cert, nanda_check_health, nanda_register_agent,\nnanda_get_agentfacts, nanda_resolve_agent, nanda_federation_status, nanda_create_workflow,\nnanda_run_workflow, nanda_trust_scores, nanda_compliance_check, nanda_subscribe_webhook.\n",
+        "tags": [
+          "Protocol"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "jsonrpc",
+                  "method",
+                  "id"
+                ],
+                "properties": {
+                  "jsonrpc": {
+                    "type": "string",
+                    "enum": [
+                      "2.0"
+                    ]
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "tools/list",
+                      "tools/call",
+                      "initialize"
+                    ]
+                  },
+                  "params": {
+                    "type": "object"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON-RPC response with tool results"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          }
+        }
+      }
+    },
+    "/lookup/{id}": {
+      "get": {
+        "summary": "Look up agent by ID",
+        "description": "Returns full registration details for a specific agent.",
+        "tags": [
+          "Registry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Agent ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent details"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      }
+    },
+    "/list": {
+      "get": {
+        "summary": "List all registered agents",
+        "description": "Returns all agents in the registry with parsed capabilities and tags.",
+        "tags": [
+          "Registry"
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of agent objects"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Checks D1 database, R2 storage, and KV cache. Returns 503 if any check fails. Pass `?probe=secrets` to additionally probe each declared secrets_store_secrets binding via `.get()` and report per-binding status (machine-readable, consumable by the tenant deploy-worker.yml post-provision assertions).\n",
+        "tags": [
+          "System"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "probe",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "secrets"
+              ]
+            },
+            "description": "When set to `secrets`, deep-probes each Secrets Store binding."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All systems operational"
+          },
+          "503": {
+            "description": "One or more systems degraded"
+          }
+        }
+      }
+    },
+    "/federation/status": {
+      "get": {
+        "summary": "Federation status",
+        "description": "Returns federation status including v1 pull-sync and v2 CRDT gossip state.",
+        "tags": [
+          "Federation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Federation status (v1 + v2)"
+          }
+        }
+      }
+    },
+    "/federation/peers": {
+      "get": {
+        "summary": "List federation peers",
+        "description": "Returns all known federation peer registries with status and last sync time.",
+        "tags": [
+          "Federation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of federation peers"
+          }
+        }
+      },
+      "post": {
+        "summary": "Register a federation peer",
+        "description": "Register a new peer. Requires federation admin key.",
+        "tags": [
+          "Federation"
+        ],
+        "security": [
+          {
+            "FederationAdmin": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "peer_id",
+                  "peer_url",
+                  "node_id"
+                ],
+                "properties": {
+                  "peer_id": {
+                    "type": "string"
+                  },
+                  "peer_url": {
+                    "type": "string"
+                  },
+                  "node_id": {
+                    "type": "string"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Peer registered"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/federation/join": {
+      "post": {
+        "summary": "Mutual peer registration",
+        "description": "Registers the caller as a peer and reciprocally registers this node on the caller.",
+        "tags": [
+          "Federation"
+        ],
+        "security": [
+          {
+            "FederationAdmin": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "peer_id",
+                  "peer_url",
+                  "node_id"
+                ],
+                "properties": {
+                  "peer_id": {
+                    "type": "string"
+                  },
+                  "peer_url": {
+                    "type": "string"
+                  },
+                  "node_id": {
+                    "type": "string"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Both sides registered"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/federation/gossip": {
+      "post": {
+        "summary": "Receive gossip from peers",
+        "description": "CRDT gossip inbound endpoint. Merges agent state from peer registries using LWW-Element-Set CRDTs.",
+        "tags": [
+          "Federation"
+        ],
+        "security": [
+          {
+            "FederationAdmin": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "peer_url",
+                  "entries"
+                ],
+                "properties": {
+                  "peer_url": {
+                    "type": "string"
+                  },
+                  "entries": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Merge results"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/federation/agents": {
+      "get": {
+        "summary": "List federated agents",
+        "description": "Returns all agents imported from peer registries via federation sync.",
+        "tags": [
+          "Federation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of federated agents with source peer"
+          }
+        }
+      }
+    },
+    "/credentials/status/{id}": {
+      "get": {
+        "summary": "VC revocation status list",
+        "description": "Returns StatusList2021 credential for VC revocation checking. Cached for 5 minutes.",
+        "tags": [
+          "Trust"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Status list ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "StatusList2021Credential"
+          }
+        }
+      }
+    },
+    "/api/webhooks": {
+      "get": {
+        "summary": "List webhook subscriptions",
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of subscriptions"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a webhook subscription",
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "callback_url",
+                  "events"
+                ],
+                "properties": {
+                  "callback_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription created (includes secret — show only once)"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}": {
+      "get": {
+        "summary": "Get webhook subscription details",
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription details"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update subscription (pause/resume)",
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "pause",
+                      "resume"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Invalid action"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a webhook subscription",
+        "tags": [
+          "Webhooks"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/visitors": {
+      "post": {
+        "summary": "Register visitor",
+        "description": "Record a visitor from vault-gate. Upserts by email.",
+        "tags": [
+          "Internal"
+        ],
+        "responses": {
+          "200": {
+            "description": "Visitor recorded"
+          },
+          "400": {
+            "description": "Missing name or email"
+          }
+        }
+      }
+    },
+    "/api/ucp/checkout-sessions": {
+      "post": {
+        "summary": "Create checkout session",
+        "description": "Create a new UCP checkout session for agent-to-agent payments.",
+        "tags": [
+          "UCP"
+        ],
+        "responses": {
+          "201": {
+            "description": "Checkout session created"
+          }
+        }
+      },
+      "get": {
+        "summary": "Get checkout session",
+        "description": "Retrieve a checkout session by ID.",
+        "tags": [
+          "UCP"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Checkout session details"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        }
+      }
+    },
+    "/api/ucp/checkout-sessions/{id}": {
+      "patch": {
+        "summary": "Submit payment",
+        "description": "Submit payment information for a checkout session.",
+        "tags": [
+          "UCP"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment submitted"
+          },
+          "400": {
+            "description": "Invalid payment"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Cancel checkout session",
+        "description": "Cancel an active checkout session.",
+        "tags": [
+          "UCP"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session cancelled"
+          }
+        }
+      }
+    },
+    "/api/trust/scores": {
+      "get": {
+        "summary": "Query cross-registry trust scores (API key required)",
+        "tags": [
+          "Trust Scores"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trust scores"
+          },
+          "401": {
+            "description": "API key required"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      }
+    },
+    "/api/trust/framework": {
+      "get": {
+        "summary": "Query trust frameworks",
+        "description": "List registered trust frameworks (ToIP-aligned). Filter by framework ID.",
+        "tags": [
+          "Trust"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter to a single framework"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trust frameworks list"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/trust/framework/graph": {
+      "get": {
+        "summary": "Query trust graph",
+        "description": "Query trust graph edges. Get edges for a DID or compute trust path between two DIDs.",
+        "tags": [
+          "Trust"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "did",
+            "schema": {
+              "type": "string"
+            },
+            "description": "DID to get trust edges for"
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Source DID for path computation"
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Target DID for path computation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trust graph edges or path"
+          },
+          "400": {
+            "description": "Missing required parameters"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/trust/cross-registry": {
+      "post": {
+        "summary": "Sync cross-registry trust scores (apikey or admin)",
+        "tags": [
+          "Trust Scores"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync completed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden — apikey or admin required"
+          },
+          "503": {
+            "description": "Federation peer not configured"
+          }
+        }
+      }
+    },
+    "/api/subscriptions": {
+      "get": {
+        "summary": "Get active subscription",
+        "description": "Returns the active subscription for a given API key.",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "keyId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active subscription"
+          },
+          "404": {
+            "description": "No active subscription"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create subscription",
+        "description": "Create a new subscription with plan, billing cycle, and currency.",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "201": {
+            "description": "Subscription created"
+          }
+        }
+      }
+    },
+    "/api/subscriptions/{id}": {
+      "get": {
+        "summary": "Get subscription details",
+        "description": "Returns subscription details with event history.",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription with events"
+          },
+          "404": {
+            "description": "Subscription not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update subscription",
+        "description": "Change plan or update subscription settings.",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription updated"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Cancel subscription",
+        "description": "Cancel an active subscription.",
+        "tags": [
+          "Billing"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription cancelled"
+          }
+        }
+      }
+    },
+    "/api/orchestration": {
+      "get": {
+        "summary": "List workflows",
+        "description": "List workflows filtered by owner ID or status.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ownerId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "active",
+                "paused",
+                "archived"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of workflows"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a workflow",
+        "description": "Create a new multi-agent workflow with DAG-ordered steps.",
+        "tags": [
+          "Orchestration"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "ownerId",
+                  "dag"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "ownerId": {
+                    "type": "string"
+                  },
+                  "dag": {
+                    "type": "object"
+                  },
+                  "templateId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Workflow created"
+          },
+          "400": {
+            "description": "Invalid DAG or missing fields"
+          }
+        }
+      }
+    },
+    "/api/orchestration/runs/{runId}": {
+      "get": {
+        "summary": "Get workflow run details",
+        "description": "Returns workflow run with step results and status.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run details with step results"
+          },
+          "404": {
+            "description": "Run not found"
+          }
+        }
+      }
+    },
+    "/api/orchestration/runs/{runId}/events": {
+      "get": {
+        "summary": "SSE event stream",
+        "description": "Server-Sent Events stream of workflow run progress. For real-time monitoring.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE event stream"
+          }
+        }
+      },
+      "post": {
+        "summary": "Get event history",
+        "description": "Non-streaming retrieval of run event history.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event history array"
+          }
+        }
+      }
+    },
+    "/api/orchestration/runs/{runId}/cancel": {
+      "post": {
+        "summary": "Cancel workflow run",
+        "description": "Cancel a pending or running workflow run.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run cancelled"
+          },
+          "404": {
+            "description": "Run not found"
+          },
+          "409": {
+            "description": "Run already completed or cancelled"
+          }
+        }
+      }
+    },
+    "/api/orchestration/route": {
+      "post": {
+        "summary": "Route to best agent",
+        "description": "Uses multi-strategy scoring to find the best agent for an action (trust, latency, capability match).",
+        "tags": [
+          "Orchestration"
+        ],
+        "responses": {
+          "200": {
+            "description": "Routing decision with scores"
+          }
+        }
+      }
+    },
+    "/api/orchestration/patterns": {
+      "get": {
+        "summary": "List orchestrator patterns",
+        "description": "Returns available workflow patterns (fan-out, pipeline, consensus, etc).",
+        "tags": [
+          "Orchestration"
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of patterns"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create pattern",
+        "description": "Create a custom orchestrator pattern.",
+        "tags": [
+          "Orchestration"
+        ],
+        "responses": {
+          "201": {
+            "description": "Pattern created"
+          }
+        }
+      }
+    },
+    "/api/orchestration/delegate": {
+      "get": {
+        "summary": "List delegations",
+        "description": "List delegation tasks for a workflow.",
+        "tags": [
+          "Orchestration"
+        ]
+      },
+      "post": {
+        "summary": "Delegate task",
+        "description": "Delegate a task to a sub-agent via A2A routing.",
+        "tags": [
+          "Orchestration"
+        ],
+        "responses": {
+          "201": {
+            "description": "Task delegated"
+          }
+        }
+      }
+    },
+    "/api/orchestration/conflicts": {
+      "get": {
+        "summary": "List conflicts",
+        "description": "List conflict events for a workflow run.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "workflow_id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "run_id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of conflicts"
+          }
+        }
+      },
+      "post": {
+        "summary": "Raise conflict",
+        "description": "Raise a conflict for resolution when agents produce conflicting results.",
+        "tags": [
+          "Orchestration"
+        ],
+        "responses": {
+          "201": {
+            "description": "Conflict raised"
+          }
+        }
+      }
+    },
+    "/api/orchestration/conflicts/{id}": {
+      "get": {
+        "summary": "Get conflict details",
+        "description": "Returns conflict details and resolution status.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conflict details"
+          },
+          "404": {
+            "description": "Conflict not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Resolve conflict manually",
+        "description": "Submit a manual resolution for a conflict.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conflict resolved"
+          }
+        }
+      }
+    },
+    "/api/orchestration/{id}": {
+      "get": {
+        "summary": "Get workflow details",
+        "description": "Returns workflow with steps and DAG definition.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow with steps"
+          },
+          "404": {
+            "description": "Workflow not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update workflow",
+        "description": "Update workflow name, description, status, or DAG.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated workflow"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete workflow",
+        "description": "Permanently delete a workflow and its steps.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow deleted"
+          }
+        }
+      }
+    },
+    "/api/orchestration/{id}/runs": {
+      "get": {
+        "summary": "List workflow runs",
+        "description": "Returns all runs for a workflow.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of workflow runs"
+          }
+        }
+      },
+      "post": {
+        "summary": "Start workflow run",
+        "description": "Start a new execution of a workflow.",
+        "tags": [
+          "Orchestration"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Run started"
+          }
+        }
+      }
+    },
+    "/api/invoices": {
+      "get": {
+        "summary": "List invoices",
+        "description": "Returns invoices for a given API key owned by the caller.",
+        "tags": [
+          "Billing"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "keyId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of invoices"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not the key owner"
+          }
+        }
+      },
+      "post": {
+        "summary": "Generate invoice",
+        "description": "Generate a new invoice for a billing period.",
+        "tags": [
+          "Billing"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Invoice generated"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not the key owner"
+          }
+        }
+      }
+    },
+    "/api/invoices/{id}": {
+      "get": {
+        "summary": "Get invoice details",
+        "description": "Returns invoice details by ID. Caller must own the invoice's key, or be an admin.",
+        "tags": [
+          "Billing"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice details"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not the owner of the invoice"
+          },
+          "404": {
+            "description": "Invoice not found"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update invoice status",
+        "description": "Issue or void an invoice. Caller must own the invoice's key, or be an admin.",
+        "tags": [
+          "Billing"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice updated"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not the owner of the invoice"
+          },
+          "404": {
+            "description": "Invoice not found"
+          },
+          "409": {
+            "description": "Invoice already in requested state"
+          }
+        }
+      }
+    },
+    "/api/developers/keys": {
+      "post": {
+        "summary": "Generate a new API key",
+        "description": "Creates a new developer API key. Requires session authentication (not API key auth).",
+        "tags": [
+          "Developer Keys"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "description": "Label for the key"
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "free",
+                      "pro",
+                      "enterprise"
+                    ],
+                    "default": "free"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API key generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "raw_key": {
+                          "type": "string"
+                        },
+                        "key_prefix": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "tier": {
+                          "type": "string"
+                        },
+                        "rate_limit_monthly": {
+                          "type": "integer"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "API key auth not permitted or non-admin tier request"
+          },
+          "429": {
+            "description": "Maximum active keys reached"
+          }
+        }
+      },
+      "get": {
+        "summary": "List API keys",
+        "description": "Lists all developer API keys for the authenticated user. Requires session authentication.",
+        "tags": [
+          "Developer Keys"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of API keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "key_prefix": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "tier": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "API key auth not permitted"
+          }
+        }
+      }
+    },
+    "/api/developers/keys/{id}": {
+      "delete": {
+        "summary": "Revoke an API key",
+        "description": "Revokes a developer API key. Requires session auth and ownership of the key.",
+        "tags": [
+          "Developer Keys"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The API key ID to revoke"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Key revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "key_prefix": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "revoked_at": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "API key auth not permitted"
+          },
+          "404": {
+            "description": "Key not found or not owned by user"
+          }
+        }
+      }
+    },
+    "/api/developer/earnings": {
+      "get": {
+        "summary": "Developer earnings",
+        "description": "Returns earnings summary for the authenticated developer. Admins may pass `developerId` to inspect another user.",
+        "tags": [
+          "Billing"
+        ],
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "developerId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Admin-only override to look up another developer."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Earnings summary"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Session required / cross-tenant access denied"
+          }
+        }
+      },
+      "post": {
+        "summary": "Settle or register split",
+        "description": "Settle pending earnings or register a new revenue split.",
+        "tags": [
+          "Billing"
+        ],
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Action result"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Session required / cross-tenant access denied"
+          }
+        }
+      }
+    },
+    "/api/cron/gossip-push": {
+      "post": {
+        "summary": "Cron gossip push",
+        "description": "Scheduled gossip push to all healthy federation peers. Internal cron endpoint.",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "CronAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gossip pushed"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/cron/external-registry-sync": {
+      "post": {
+        "summary": "Cron external registry sync",
+        "description": "Syncs agents from all enabled external registries. Internal cron endpoint.",
+        "tags": [
+          "Internal"
+        ],
+        "security": [
+          {
+            "CronAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync results"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/analytics/behavior": {
+      "get": {
+        "summary": "Behavior analytics",
+        "description": "Agent behavior analytics including probe success rates, latency trends, and anomaly detection.",
+        "tags": [
+          "Analytics"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily",
+                "weekly"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Behavior metrics with trends and anomalies"
+          },
+          "400": {
+            "description": "Missing agent parameter"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/admin/federation": {
+      "get": {
+        "summary": "Federation admin status",
+        "description": "Federation v2 status including peers, gossip stats, and ZTAA policy.",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Federation admin status"
+          }
+        }
+      },
+      "post": {
+        "summary": "Manage federation peers",
+        "description": "Register/remove peers or evaluate ZTAA policy.",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Action result"
+          }
+        }
+      }
+    },
+    "/api/admin/billing": {
+      "get": {
+        "summary": "Billing summary",
+        "description": "Billing summary or period listing for an API key.",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "keyId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "periods",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Billing data"
+          }
+        }
+      }
+    },
+    "/api/admin/analytics/payments": {
+      "get": {
+        "summary": "Payment analytics dashboard",
+        "description": "Aggregated payment analytics for the admin dashboard. Supports daily, weekly, monthly ranges.",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "range",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard analytics data"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/agents/{id}": {
+      "get": {
+        "summary": "Get agent by ID",
+        "description": "Returns full registration for a specific agent.",
+        "tags": [
+          "Agents"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent record"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update agent fields",
+        "description": "Partial update of agent_url, api_url, facts_url, capabilities, tags.",
+        "tags": [
+          "Agents"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated agent"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete an agent",
+        "description": "Remove agent from registry. Requires federation admin auth.",
+        "tags": [
+          "Agents"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      }
+    },
+    "/agents/{id}/status": {
+      "put": {
+        "summary": "Update agent status",
+        "description": "Update an agent's operational status and optionally its capabilities.",
+        "tags": [
+          "Agents"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "inactive",
+                      "deprecated",
+                      "tombstoned"
+                    ]
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      }
+    },
+    "/agents/{id}/refresh": {
+      "post": {
+        "summary": "Refresh agent from card",
+        "description": "Re-crawls the agent's /.well-known/agent-card.json and updates registration and facts.",
+        "tags": [
+          "Agents"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent refreshed"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      }
+    },
+    "/agentfacts/{id}": {
+      "get": {
+        "summary": "Get agent facts",
+        "description": "Returns AgentFacts JSON for an agent. Use ?format=vc for a Verifiable Credential envelope.",
+        "tags": [
+          "Registry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Agent ID"
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "vc"
+              ]
+            },
+            "description": "Return VC-wrapped facts if set to \"vc\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "AgentFacts data (plain JSON or VC envelope)"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Store or update agent facts",
+        "description": "Store AgentFacts metadata for an agent.",
+        "tags": [
+          "Registry"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "AgentFacts JSON payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Facts stored"
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    }
+  }
+}

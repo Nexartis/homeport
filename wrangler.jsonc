@@ -1,0 +1,293 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "homeport",
+
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"compatibility_date": "2026-03-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	},
+	"upload_source_maps": true,
+	// To bind your node to a custom domain, uncomment the block below in the
+	// desired env and set your hostname. Wrangler creates the Worker route on
+	// deploy; DNS must already point at Cloudflare.
+	// "routes": [{ "pattern": "nanda.example.com", "custom_domain": true }]
+	"env": {
+		"dev": {
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "homeport-db-dev",
+					"database_id": "__PEGASUS_PROVISION__",
+					"migrations_dir": "drizzle/migrations"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "KYM_NANDA_EVIDENCE",
+					"bucket_name": "homeport-evidence-dev"
+				}
+			],
+			"kv_namespaces": [
+				{
+					"binding": "NANDA_NODE_CACHE",
+					"id": "__PEGASUS_PROVISION__"
+				}
+			],
+			"triggers": {
+				"crons": ["0 * * * *"]
+			},
+			"secrets_store_secrets": [
+				{
+					"binding": "KYM_NANDA_HMAC_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_HMAC_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_RADIUS_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_RADIUS_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_ED25519_PRIVATE_KEY_v1",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_ED25519_PRIVATE_KEY_v1"
+				},
+				{
+					"binding": "CRON_AUTH_TOKEN",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_CRON_AUTH_TOKEN"
+				},
+				{
+					"binding": "NANDA_FEDERATION_ADMIN_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_FEDERATION_ADMIN_KEY"
+				},
+				{
+					"binding": "RESEND_API_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "RESEND_API_KEY"
+				}
+			],
+			"vars": {
+				"ENVIRONMENT": "development",
+				"LOG_LEVEL": "debug",
+				"NANDA_REGISTRY_URL": "__PEGASUS_PROVISION__",
+				"NANDA_ED25519_PUBLIC_KEY_v1": "__PEGASUS_PROVISION__",
+				"SENTINEL_API_URL": "__PEGASUS_PROVISION__",
+				"VITE_BASE_URL": "__PEGASUS_PROVISION__",
+				"SITE_OWNER_EMAIL": "__PEGASUS_PROVISION__",
+				"FROM_EMAIL": "__PEGASUS_PROVISION__",
+				"NANDA_FEDERATION_PEER_URL": "__PEGASUS_PROVISION__",
+				"NANDA_NODE_ID": "__PEGASUS_PROVISION__",
+				"PAYMENT_PAYEE": "service",
+				"CERT_VALIDITY_DAYS": "90",
+				"CERT_PASS_THRESHOLD": "0.8",
+				"NP_TO_USD_RATE": "0.001",
+				"EUR_TO_USD_RATE": "1.08",
+				"SENTINEL_POST_AUTH_REDIRECT": "/admin"
+			}
+			// "routes": [{ "pattern": "nanda.example.com", "custom_domain": true }]
+		},
+		"test": {
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "homeport-db-test",
+					"database_id": "__PEGASUS_PROVISION__",
+					"migrations_dir": "drizzle/migrations"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "KYM_NANDA_EVIDENCE",
+					"bucket_name": "homeport-evidence-test"
+				}
+			],
+			"kv_namespaces": [
+				{
+					"binding": "NANDA_NODE_CACHE",
+					"id": "__PEGASUS_PROVISION__"
+				}
+			],
+			"triggers": {
+				"crons": ["0 * * * *"]
+			},
+			"secrets_store_secrets": [
+				{
+					"binding": "KYM_NANDA_HMAC_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_HMAC_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_RADIUS_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_RADIUS_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_ED25519_PRIVATE_KEY_v1",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_ED25519_PRIVATE_KEY_v1"
+				},
+				{
+					"binding": "CRON_AUTH_TOKEN",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_CRON_AUTH_TOKEN"
+				},
+				{
+					"binding": "NANDA_FEDERATION_ADMIN_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_FEDERATION_ADMIN_KEY"
+				},
+				{
+					"binding": "RESEND_API_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "RESEND_API_KEY"
+				}
+			],
+			"vars": {
+				"ENVIRONMENT": "test",
+				"LOG_LEVEL": "info",
+				"NANDA_REGISTRY_URL": "__PEGASUS_PROVISION__",
+				"NANDA_ED25519_PUBLIC_KEY_v1": "__PEGASUS_PROVISION__",
+				"SENTINEL_API_URL": "__PEGASUS_PROVISION__",
+				"VITE_BASE_URL": "__PEGASUS_PROVISION__",
+				"FROM_EMAIL": "__PEGASUS_PROVISION__",
+				"NANDA_FEDERATION_PEER_URL": "__PEGASUS_PROVISION__",
+				"NANDA_NODE_ID": "__PEGASUS_PROVISION__",
+				"PAYMENT_PAYEE": "service",
+				"CERT_VALIDITY_DAYS": "90",
+				"CERT_PASS_THRESHOLD": "0.8",
+				"NP_TO_USD_RATE": "0.001",
+				"EUR_TO_USD_RATE": "1.08",
+				"SENTINEL_POST_AUTH_REDIRECT": "/admin"
+			}
+			// "routes": [{ "pattern": "nanda.example.com", "custom_domain": true }]
+		},
+		"prod": {
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "homeport-db",
+					"database_id": "__PEGASUS_PROVISION__",
+					"migrations_dir": "drizzle/migrations"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "KYM_NANDA_EVIDENCE",
+					"bucket_name": "homeport-evidence-prod"
+				}
+			],
+			"kv_namespaces": [
+				{
+					"binding": "NANDA_NODE_CACHE",
+					"id": "__PEGASUS_PROVISION__"
+				}
+			],
+			"triggers": {
+				"crons": ["0 * * * *"]
+			},
+			"secrets_store_secrets": [
+				{
+					"binding": "KYM_NANDA_HMAC_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_HMAC_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_RADIUS_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_RADIUS_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_ED25519_PRIVATE_KEY_v1",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_ED25519_PRIVATE_KEY_v1"
+				},
+				{
+					"binding": "CRON_AUTH_TOKEN",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_CRON_AUTH_TOKEN"
+				},
+				{
+					"binding": "NANDA_FEDERATION_ADMIN_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_FEDERATION_ADMIN_KEY"
+				},
+				{
+					"binding": "RESEND_API_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "RESEND_API_KEY"
+				}
+			],
+			"vars": {
+				"ENVIRONMENT": "production",
+				"LOG_LEVEL": "warn",
+				"NANDA_REGISTRY_URL": "__PEGASUS_PROVISION__",
+				"NANDA_ED25519_PUBLIC_KEY_v1": "__PEGASUS_PROVISION__",
+				"SENTINEL_API_URL": "__PEGASUS_PROVISION__",
+				"VITE_BASE_URL": "__PEGASUS_PROVISION__",
+				"SITE_OWNER_EMAIL": "__PEGASUS_PROVISION__",
+				"FROM_EMAIL": "__PEGASUS_PROVISION__",
+				"NANDA_FEDERATION_PEER_URL": "__PEGASUS_PROVISION__",
+				"NANDA_NODE_ID": "__PEGASUS_PROVISION__",
+				"PAYMENT_PAYEE": "service",
+				"CERT_VALIDITY_DAYS": "90",
+				"CERT_PASS_THRESHOLD": "0.8",
+				"NP_TO_USD_RATE": "0.001",
+				"EUR_TO_USD_RATE": "1.08",
+				"SENTINEL_POST_AUTH_REDIRECT": "/admin"
+			}
+			// "routes": [{ "pattern": "nanda.example.com", "custom_domain": true }]
+		},
+		"testnet": {
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "homeport-db-testnet",
+					"database_id": "__PEGASUS_PROVISION__",
+					"migrations_dir": "drizzle/migrations"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "KYM_NANDA_EVIDENCE",
+					"bucket_name": "homeport-evidence-testnet"
+				}
+			],
+			"kv_namespaces": [
+				{
+					"binding": "NANDA_NODE_CACHE",
+					"id": "__PEGASUS_PROVISION__"
+				}
+			],
+			"triggers": {
+				"crons": ["0 * * * *"]
+			},
+			"vars": {
+				"ENVIRONMENT": "production",
+				"LOG_LEVEL": "debug",
+				"NANDA_REGISTRY_URL": "__PEGASUS_PROVISION__",
+				"NANDA_ED25519_PUBLIC_KEY_v1": "",
+				"SENTINEL_API_URL": "__PEGASUS_PROVISION__",
+				"VITE_BASE_URL": "__PEGASUS_PROVISION__",
+				"FROM_EMAIL": "__PEGASUS_PROVISION__",
+				"NANDA_FEDERATION_PEER_URL": "",
+				"NANDA_NODE_ID": "__PEGASUS_PROVISION__",
+				"PAYMENT_PAYEE": "service",
+				"CERT_VALIDITY_DAYS": "90",
+				"CERT_PASS_THRESHOLD": "0.8",
+				"NP_TO_USD_RATE": "0.001",
+				"EUR_TO_USD_RATE": "1.08",
+				"SENTINEL_POST_AUTH_REDIRECT": "/admin"
+			}
+			// "routes": [{ "pattern": "nanda.example.com", "custom_domain": true }]
+		}
+	}
+}

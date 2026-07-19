@@ -4,7 +4,9 @@
 > **One line:** Grant, verify, and cascade-revoke agent delegations that
 > chain back to a human principal — an agent's authority only counts if
 > a human said it could act.
-> **Base URL:** `https://nexartisnandahacksquad.link`
+> **Base URL:** `https://your-homeport.example.com` (replace with
+> your own Homeport node URL; managed hosting available at
+> [cubicube.com](https://cubicube.com))
 > **Tags:** `trust` `delegation` `revocation` `cascade` `proof-of-human`
 > `yanez` `ed25519` `verifiable-admission` `nanda` `a2a`
 
@@ -19,36 +21,35 @@ delegation. Agents may re-delegate down a chain — but only narrower
 grant can be revoked, and **revocation cascades**: kill a mid-chain
 grant and every descendant grant dies with it, up to 32 hops.
 
-Every grant is bound by a canonical SHA-256 proof hash to *exactly* the
+Every grant is bound by a canonical SHA-256 proof hash to _exactly_ the
 scope, grantee, expiry, and parent it was issued for. Change one byte —
 one tool name, one second of TTL — and the hash breaks and the grant is
 refused.
 
-This is **production code, not a hackathon mock**: the same service
-runs on 28 live NANDA nodes deployed via CubiCube. The deterministic
-Python port of this exact verification logic is our NandaHack Phase 2
-submission to `projnanda/nandatown` (trust-layer plugin
-`delegated_admission`), with byte-parity fixtures generated from this
-service.
+This is **production code**: the same service runs on live NANDA
+nodes deployed via Cubicube. The deterministic Python port of this
+exact verification logic is contributed to `projnanda/nandatown` as
+the trust-layer plugin `delegated_admission`, with byte-parity
+fixtures generated from this service.
 
 ## Live endpoints
 
 Discovery and health (no auth):
 
 ```
-GET  https://nexartisnandahacksquad.link/health
-GET  https://nexartisnandahacksquad.link/.well-known/agent-card.json
-GET  https://nexartisnandahacksquad.link/.well-known/nanda-index
-GET  https://nexartisnandahacksquad.link/.well-known/keys/ed25519-v1
+GET  https://your-homeport.example.com/health
+GET  https://your-homeport.example.com/.well-known/agent-card.json
+GET  https://your-homeport.example.com/.well-known/nanda-index
+GET  https://your-homeport.example.com/.well-known/keys/ed25519-v1
 ```
 
 Delegation actions (JSON-RPC 2.0 over A2A, **auth required** — see
 below):
 
 ```
-POST https://nexartisnandahacksquad.link/a2a    (delegation.grant)
-POST https://nexartisnandahacksquad.link/a2a    (delegation.check)
-POST https://nexartisnandahacksquad.link/a2a    (delegation.revoke)
+POST https://your-homeport.example.com/a2a    (delegation.grant)
+POST https://your-homeport.example.com/a2a    (delegation.check)
+POST https://your-homeport.example.com/a2a    (delegation.revoke)
 ```
 
 ## Authentication
@@ -64,12 +65,11 @@ Send an API key with every delegation call:
 Authorization: Bearer nanda_<your-api-key>
 ```
 
-Hackathon evaluators and agents: **generate your own free-tier key in
-under a minute** at
-[nexartisnandahacksquad.link/developers/dashboard](https://nexartisnandahacksquad.link/developers/dashboard)
-(sign up, click Generate, copy the raw `nanda_...` value once). Free
-tier is least-privilege by default (1,000 requests/month, five keys) —
-the same posture as our demo key. Grants are authorized per-identity:
+Operators and agents: **generate an API key in under a minute** at
+`https://<your-homeport>/developers/dashboard` (sign up, click
+Generate, copy the raw `nanda_...` value once). Free tier is
+least-privilege by default (1,000 requests/month, five keys). Grants
+are authorized per-identity:
 you may grant only as yourself (`granted_by_did` must match your
 authenticated identity), check only grants you issued or received, and
 revoke only grants you issued — unless your key carries `operator` or
@@ -80,7 +80,7 @@ revoke only grants you issued — unless your key carries `operator` or
 ### Step 0 — confirm the node is alive
 
 ```bash
-curl https://nexartisnandahacksquad.link/health
+curl https://your-homeport.example.com/health
 # → {"status":"ok", ...}
 ```
 
@@ -126,7 +126,7 @@ allowance. `expiresAt` is unix **seconds** and must be in the future.
 ### Step 2 — grant a delegation
 
 ```bash
-curl -X POST https://nexartisnandahacksquad.link/a2a \
+curl -X POST https://your-homeport.example.com/a2a \
   -H "Authorization: Bearer nanda_<key>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -140,8 +140,16 @@ curl -X POST https://nexartisnandahacksquad.link/a2a \
 Success:
 
 ```json
-{"jsonrpc":"2.0","result":{"role":"agent","parts":[{"text":
-  "{\"delegationId\":\"del-abc123\",\"kymVcId\":null,\"expiresAt\":1794000000}"}]},"id":"1"}
+{
+	"jsonrpc": "2.0",
+	"result": {
+		"role": "agent",
+		"parts": [
+			{ "text": "{\"delegationId\":\"del-abc123\",\"kymVcId\":null,\"expiresAt\":1794000000}" }
+		]
+	},
+	"id": "1"
+}
 ```
 
 To re-delegate, pass the parent's id as `parent_delegation_id`. The
@@ -152,7 +160,7 @@ revocable parent cannot spawn a non-revocable child.
 ### Step 3 — check a delegation (do this before trusting an agent)
 
 ```bash
-curl -X POST https://nexartisnandahacksquad.link/a2a \
+curl -X POST https://your-homeport.example.com/a2a \
   -H "Authorization: Bearer nanda_<key>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -168,9 +176,17 @@ it arrives inside the same JSON-RPC `result.parts[0].text` envelope as
 the grant response above):
 
 ```json
-{"valid":true,"revoked":false,"expired":false,"expiresAt":1794000000,
- "credentialSubject":{"grantedByDid":"<your-id>",
-   "grantedToDid":"agent-worker-7","scope":["tool.echo","tool.summarize"]}}
+{
+	"valid": true,
+	"revoked": false,
+	"expired": false,
+	"expiresAt": 1794000000,
+	"credentialSubject": {
+		"grantedByDid": "<your-id>",
+		"grantedToDid": "agent-worker-7",
+		"scope": ["tool.echo", "tool.summarize"]
+	}
+}
 ```
 
 `check` walks the **entire ancestor chain** (up to 32 hops): if any
@@ -181,7 +197,7 @@ can never outlive or out-rank its parent.
 ### Step 4 — revoke (and watch the cascade)
 
 ```bash
-curl -X POST https://nexartisnandahacksquad.link/a2a \
+curl -X POST https://your-homeport.example.com/a2a \
   -H "Authorization: Bearer nanda_<key>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -195,8 +211,7 @@ curl -X POST https://nexartisnandahacksquad.link/a2a \
 Response (unwrapped, as above):
 
 ```json
-{"revoked":true,"revokedAt":1794000123,
- "cascadedIds":["del-child-1","del-grandchild-4"]}
+{ "revoked": true, "revokedAt": 1794000123, "cascadedIds": ["del-child-1", "del-grandchild-4"] }
 ```
 
 Every descendant in `cascadedIds` is now dead. Re-checking any of them
@@ -207,11 +222,11 @@ returns `valid:false, revoked:true`. Revocation is idempotent.
 HTTP 400 with a JSON-RPC error object. `message` is prefixed with a
 stable machine-readable code:
 
-| Code | Meaning |
-| --- | --- |
-| `-32001` | Auth required / not your grant / `not-found` / `not-revocable` |
+| Code     | Meaning                                                                                                                                                                                                                 |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-32001` | Auth required / not your grant / `not-found` / `not-revocable`                                                                                                                                                          |
 | `-32602` | Validation: `missing-scope`, `already-expired`, `missing-proof`, `invalid-proof`, `puh-proof-stale`, `proof-hash-mismatch`, `parent-revoked`, `scope-widens-parent`, `ttl-widens-parent`, `revocable-flip-forbidden`, … |
-| `-32000` | Anything else |
+| `-32000` | Anything else                                                                                                                                                                                                           |
 
 The interesting ones are the attacks this service refuses by
 construction: widen your scope after the proof was hashed →
@@ -220,21 +235,20 @@ grant broader authority than your parent grant → `scope-widens-parent`.
 
 ## Provenance
 
-- Server: **Homeport**, the Nexartis open-source NANDA node
-  (Apache-2.0) — https://github.com/Nexartis/homeport. Delegation
-  logic in `src/lib/server/delegation-grants.ts`, exercised by
-  `tests/delegation-grants.test.ts`; the delegation module is public
-  today and the node's full source lands in the same repo within a
-  week of the hackathon (code review + cleanup in progress).
-- Fleet: 28 live NANDA nodes deployed via CubiCube; this endpoint is
-  one of them.
+- Server: **Homeport**, the Nexartis open-source, self-hostable
+  NANDA node (Apache-2.0) —
+  https://github.com/Nexartis/homeport. Delegation logic in
+  `src/lib/server/delegation-grants.ts`, exercised by
+  `tests/delegation-grants.test.ts`.
+- Fleet: a live fleet of NANDA nodes runs in production, deployed
+  via Cubicube.
 - Human anchor: the `proof` envelope carries a Yanez biometric
   principal (`principalPk`) and preapproval `requestId` — the same
   proof-of-human ceremony that gates payments in our stack gates
   delegation minting.
-- NandaHack Phase 2: deterministic Python port of this verifier as the
-  `delegated_admission` trust plugin for `projnanda/nandatown`, with
-  adversarial validators that fail on the baseline trust plugin and
-  pass on ours, under the same scenario.
+- Upstream: the deterministic Python port of this verifier is
+  contributed to `projnanda/nandatown` as the `delegated_admission`
+  trust plugin, with adversarial validators that fail on the
+  baseline trust plugin and pass on ours, under the same scenario.
 
-Operated by the Nexartis NandaHack squad.
+Maintained by Nexartis.

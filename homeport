@@ -1,0 +1,4 @@
+#!/bin/sh
+# Homeport launcher — delegates to bin/homeport.mjs so a fresh clone
+# can run `./homeport run -p 8080` with zero setup.
+exec node "$(dirname "$0")/bin/homeport.mjs" "$@"

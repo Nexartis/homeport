@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#0a0a0f" />
+
+		<!-- Favicon -->
+		<link rel="icon" href="/favicon.ico" sizes="32x32" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+
+		<!-- Default title (page-level <svelte:head><title>…</title></svelte:head> wins) -->
+		<title>Homeport</title>
+
+		<!-- Open Graph / Social (structural defaults) -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Homeport" />
+		<meta name="twitter:card" content="summary_large_image" />
+
+		<script>
+			// Homeport is always dark mode
+			(function () {
+				document.documentElement.classList.add('dark');
+			})();
+		</script>
+		%sveltekit.head%
+		<!-- OG image fallbacks — placed AFTER sveltekit.head so page-specific tags win (crawlers use first og:image) -->
+		<!-- Uses relative paths so the correct host is resolved per-environment (dev/test/prod) -->
+		<meta property="og:image" content="/og/default.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:image" content="/og/default.png" />
+	</head>
+	<body data-sveltekit-preload-data="hover" class="bg-nanda-bg text-nanda-text antialiased">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
