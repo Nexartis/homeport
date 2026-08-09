@@ -171,18 +171,20 @@ describe('GET /lookup/:id', () => {
 // ─── /list ────────────────────────────────────────────────────
 
 describe('GET /list', () => {
-	it('returns flat dict of agent_id → agent_url', async () => {
+	it('returns discoverable agents as rich records', async () => {
 		const res = await SELF.fetch('https://fake.host/list');
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, string>;
-		expect(body['api-agent-1']).toBe('https://one.example.com');
-		expect(body['api-agent-2']).toBe('https://two.example.com');
+		const body = (await res.json()) as Record<string, unknown>[];
+		const byId = Object.fromEntries(body.map((a) => [a.agent_id as string, a]));
+		expect(byId['api-agent-1'].agent_url).toBe('https://one.example.com');
+		expect(byId['api-agent-2'].agent_url).toBe('https://two.example.com');
+		expect(byId['api-agent-1'].visibility).toBe('public');
 	});
 
 	it('includes all registered agents', async () => {
 		const res = await SELF.fetch('https://fake.host/list');
-		const body = (await res.json()) as Record<string, string>;
-		expect(Object.keys(body).length).toBeGreaterThanOrEqual(3);
+		const body = (await res.json()) as Record<string, unknown>[];
+		expect(body.length).toBeGreaterThanOrEqual(3);
 	});
 });
 

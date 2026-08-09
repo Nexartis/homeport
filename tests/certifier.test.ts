@@ -2,7 +2,7 @@
  * Certifier Tests — Wilson CI, grading, HMAC signing, job lifecycle, certificate issuance
  * Uses @cloudflare/vitest-pool-workers with real local D1 + R2 bindings.
  */
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { env } from 'cloudflare:test';
 import {
 	wilsonCI,
@@ -76,6 +76,12 @@ const TABLES = [
     ON cert_revocations(status_list_index)`
 ];
 
+// The env object is shared across all suites (singleWorker, isolatedStorage:false).
+// This suite injects an ephemeral Ed25519 key for buildVCProof tests and MUST
+// restore the original value afterwards — leaking it breaks later suites that
+// sign with the env key and verify against NANDA_ED25519_PUBLIC_KEY_v1.
+let originalEd25519PrivateKey: string | undefined;
+
 beforeAll(async () => {
 	await env.DB.batch(TABLES.map((sql) => env.DB.prepare(sql)));
 
@@ -88,6 +94,7 @@ beforeAll(async () => {
 	])) as CryptoKeyPair;
 	const pkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
 	const base64Key = btoa(String.fromCharCode(...new Uint8Array(pkcs8)));
+	originalEd25519PrivateKey = env.KYM_NANDA_ED25519_PRIVATE_KEY_v1;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	(env as any).KYM_NANDA_ED25519_PRIVATE_KEY_v1 = base64Key;
 
@@ -95,6 +102,13 @@ beforeAll(async () => {
 	if (!env.KYM_NANDA_HMAC_SECRET) {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		(env as any).KYM_NANDA_HMAC_SECRET = 'test-hmac-secret';
+	}
+});
+
+afterAll(() => {
+	if (originalEd25519PrivateKey !== undefined) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(env as any).KYM_NANDA_ED25519_PRIVATE_KEY_v1 = originalEd25519PrivateKey;
 	}
 });
 

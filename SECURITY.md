@@ -27,12 +27,12 @@ reporter updated as we triage, patch, and coordinate disclosure.
 We follow a **90-day coordinated disclosure SLA** from the date a
 report is acknowledged by a maintainer:
 
-| Milestone | Target |
-|---|---|
-| Initial acknowledgement | Within **3 business days** of receipt |
-| Triage and severity assessment | Within **10 business days** |
-| Fix, advisory draft, release plan | Within **45 days** for High/Critical |
-| Public disclosure + advisory | By **day 90**, or sooner once a fix ships |
+| Milestone                         | Target                                    |
+| --------------------------------- | ----------------------------------------- |
+| Initial acknowledgement           | Within **3 business days** of receipt     |
+| Triage and severity assessment    | Within **10 business days**               |
+| Fix, advisory draft, release plan | Within **45 days** for High/Critical      |
+| Public disclosure + advisory      | By **day 90**, or sooner once a fix ships |
 
 If a report is already being actively exploited, we may accelerate
 disclosure. Reporters are credited in the published advisory unless

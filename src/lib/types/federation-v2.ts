@@ -34,6 +34,7 @@ export interface AgentAddr {
 	tags?: string[];
 	source?: string;
 	status?: string;
+	visibility?: string;
 }
 
 export interface FederationPeer {

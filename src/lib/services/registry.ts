@@ -19,6 +19,14 @@ import {
 	upsertAgentFactsV2
 } from '$lib/db/repositories';
 import { detectSchemaVersion, validateAgentFactsV2 } from '$lib/types/agentfacts-v2';
+import {
+	normalizeVisibility,
+	safeParseJsonColumn,
+	type AgentVisibility,
+	type CapabilityManifestEntry,
+	type McpMetadata,
+	type PricingDescriptor
+} from '$lib/types/agent-visibility';
 
 // Required fields for AgentFacts v1 validation
 const AGENTFACTS_REQUIRED = [
@@ -57,6 +65,10 @@ export function toAgentRecord(row: {
 	status: string | null;
 	registeredAt: number | null;
 	updatedAt: number | null;
+	visibility?: string | null;
+	capabilityManifest?: string | null;
+	mcpMetadata?: string | null;
+	pricing?: string | null;
 }): Record<string, unknown> {
 	return {
 		agent_id: row.agentId,
@@ -68,7 +80,11 @@ export function toAgentRecord(row: {
 		source: row.source,
 		status: row.status,
 		registered_at: row.registeredAt,
-		updated_at: row.updatedAt
+		updated_at: row.updatedAt,
+		visibility: normalizeVisibility(row.visibility) ?? 'public',
+		capability_manifest: safeParseJsonColumn(row.capabilityManifest),
+		mcp_metadata: safeParseJsonColumn(row.mcpMetadata),
+		pricing: safeParseJsonColumn(row.pricing)
 	};
 }
 
@@ -86,6 +102,10 @@ export async function registerAgent(
 		source?: string;
 		/** Lifecycle status override. Defaults to 'alive' for new registrations. */
 		status?: string;
+		visibility?: AgentVisibility;
+		capability_manifest?: CapabilityManifestEntry[];
+		mcp_metadata?: McpMetadata;
+		pricing?: PricingDescriptor;
 		/** Ed25519 signing fields — REQUIRED, no fallbacks */
 		publicKeyHex: string;
 		signatureHex: string;
@@ -101,6 +121,12 @@ export async function registerAgent(
 		tags: agent.tags ? JSON.stringify(agent.tags) : null,
 		source: agent.source ?? 'local',
 		status: agent.status ?? 'alive',
+		visibility: agent.visibility ?? 'public',
+		capabilityManifest: agent.capability_manifest
+			? JSON.stringify(agent.capability_manifest)
+			: null,
+		mcpMetadata: agent.mcp_metadata ? JSON.stringify(agent.mcp_metadata) : null,
+		pricing: agent.pricing ? JSON.stringify(agent.pricing) : null,
 		publicKeyHex: agent.publicKeyHex,
 		signatureHex: agent.signatureHex,
 		signerId: agent.signerId
@@ -113,16 +139,13 @@ export async function lookupAgent(
 ): Promise<Record<string, unknown> | null> {
 	const row = await getAgentById(db, agentId);
 	if (!row) return null;
+	if ((normalizeVisibility(row.visibility) ?? 'public') === 'private') return null;
 	return toAgentRecord(row);
 }
 
-export async function listAgents(db: DbClient): Promise<Record<string, string>> {
+export async function listAgents(db: DbClient): Promise<Record<string, unknown>[]> {
 	const rows = await listAllAgents(db);
-	const flat: Record<string, string> = {};
-	for (const r of rows) {
-		flat[r.agentId] = r.agentUrl ?? '';
-	}
-	return flat;
+	return rows.map(toAgentRecord);
 }
 
 export async function searchAgents(

@@ -57,7 +57,7 @@ export async function execSearchAgents(
 
 export async function execListAgents(db: DbClient) {
 	const result = await listAgents(db);
-	return { agents: result, total: Object.keys(result).length };
+	return { agents: result, total: result.length };
 }
 
 // ===================================================================

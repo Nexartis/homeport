@@ -13,13 +13,14 @@
  * @see DECENTRALIZED_AGENT_DNS_IMPLEMENTATION_PLAN.md §Phase D — CRDT Update Protocol
  */
 
-import { eq, sql, and, gt } from 'drizzle-orm';
+import { eq, sql, and, gt, inArray } from 'drizzle-orm';
 import type { DbClient } from '$lib/db/client';
 import { agentAddrs } from '$lib/db/schema';
 import type { AgentAddrDelta, VectorClock, MergeResult } from '$lib/types/federation-v2';
 import { createLogger } from '$lib/utils/logger';
 import { getChangeCount } from '$lib/utils/drizzle-helpers';
 import { signAgentAddr } from '$lib/crypto/sign-agent';
+import { DISCOVERABLE_VISIBILITIES, normalizeVisibility } from '$lib/types/agent-visibility';
 
 const log = createLogger(undefined, 'crdt-merge');
 
@@ -67,6 +68,12 @@ export class CRDTMergeEngine {
 					continue;
 				}
 
+				const deltaVisibility = normalizeVisibility(delta.agent_addr.visibility) ?? 'public';
+				if (!(DISCOVERABLE_VISIBILITIES as readonly string[]).includes(deltaVisibility)) {
+					result.rejected++;
+					continue;
+				}
+
 				// Look up in agent_addrs
 				const local = await this.db.query.agentAddrs.findFirst({
 					where: eq(agentAddrs.agentId, delta.agent_id)
@@ -91,6 +98,7 @@ export class CRDTMergeEngine {
 							: null,
 						tags: delta.agent_addr.tags ? JSON.stringify(delta.agent_addr.tags) : null,
 						status: delta.agent_addr.status ?? 'alive',
+						visibility: deltaVisibility,
 						updatedAt: delta.updated_at
 					});
 					result.accepted++;
@@ -124,6 +132,7 @@ export class CRDTMergeEngine {
 								: null,
 							tags: delta.agent_addr.tags ? JSON.stringify(delta.agent_addr.tags) : null,
 							status: delta.agent_addr.status ?? 'alive',
+							visibility: deltaVisibility,
 							updatedAt: delta.updated_at
 						})
 						.where(eq(agentAddrs.agentId, delta.agent_id));
@@ -213,7 +222,12 @@ export class CRDTMergeEngine {
 		const rows = await this.db
 			.select()
 			.from(agentAddrs)
-			.where(gt(agentAddrs.updatedAt, minTs))
+			.where(
+				and(
+					gt(agentAddrs.updatedAt, minTs),
+					inArray(agentAddrs.visibility, [...DISCOVERABLE_VISIBILITIES])
+				)
+			)
 			.limit(1000);
 
 		return rows.map((row) => ({
@@ -229,7 +243,8 @@ export class CRDTMergeEngine {
 							capabilities: row.capabilities ? JSON.parse(row.capabilities) : undefined,
 							tags: row.tags ? JSON.parse(row.tags) : undefined,
 							source: row.source ?? undefined,
-							status: row.status ?? undefined
+							status: row.status ?? undefined,
+							visibility: normalizeVisibility(row.visibility) ?? 'public'
 						},
 			updated_at: row.updatedAt ?? Math.floor(Date.now() / 1000),
 			source_node: this.deriveSourceNode(row.source)

@@ -38,18 +38,19 @@
 	"pnpm": {
 		"overrides": {
 			"cookie": "^0.7.0",
-			"js-yaml": "^4.2.0",
-			"undici": "7.28.0",
+			"js-yaml": "^4.3.1",
+			"undici": "7.29.0",
 			"rollup": "^4.59.0",
 			"minimatch": "^9.0.7",
 			"devalue": "5.8.1",
 			"ws": "8.21.0",
 			"esbuild": "0.28.1",
-			"brace-expansion": "2.0.3",
+			"brace-expansion": "2.1.4",
 			"picomatch": "4.0.4",
 			"flatted": "3.4.2",
 			"yaml": "1.10.3",
-			"postcss": "8.5.10"
+			"postcss": "8.5.26",
+			"sharp@<0.35.0": "0.35.3"
 		},
 		"onlyBuiltDependencies": [
 			"better-sqlite3",
@@ -99,6 +100,7 @@
 	"dependencies": {
 		"@fontsource-variable/inter": "5.2.8",
 		"@fontsource-variable/jetbrains-mono": "5.2.8",
+		"@nexartis/homeport-sdk": "^1.0.0",
 		"@nexartis/owner-preferences": "^1.0.1",
 		"@nexartis/sentinel-sdk": "^1.6.0",
 		"@noble/curves": "^1.9.7",
@@ -111,7 +113,7 @@
 		"howler": "^2.2.4",
 		"lucide-svelte": "^0.575.0",
 		"mode-watcher": "^1.1.0",
-		"nanoid": "^5.1.6",
+		"nanoid": "^5.1.16",
 		"qrcode": "^1.5.4",
 		"svelte-grid-extended": "^1.2.1",
 		"tailwind-merge": "^3.5.0",

@@ -28,7 +28,7 @@ Two files carry the contract:
   if any declaration cannot be honored. No half-provisioned nodes.
 
 The same manifest serves self-hosters: `pnpm run setup` reads
-`cube.jsonc`, provisions the declared Cloudflare resources in *your*
+`cube.jsonc`, provisions the declared Cloudflare resources in _your_
 account, and prints the IDs to paste into `wrangler.jsonc`. One
 declaration, two consumers.
 

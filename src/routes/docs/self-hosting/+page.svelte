@@ -192,8 +192,9 @@
 				target="_blank"
 				rel="noopener"
 				class="text-nanda-accent hover:underline">Cubicube</a
-			> deploy and operate it as a managed node. A manifest-honest fork stays deployable by the same
-			engine — so a customization you build can be offered to Cubicube's customers. See
+			>
+			deploy and operate it as a managed node. A manifest-honest fork stays deployable by the same engine
+			— so a customization you build can be offered to Cubicube's customers. See
 			<a
 				href="https://github.com/Nexartis/homeport/blob/dev/docs/CUBICUBE-DISTRIBUTION.md"
 				target="_blank"
