@@ -27,13 +27,14 @@ default local validation path. Keep `.dev.vars` untracked — it is
 
 ## Validation command matrix
 
-| Command             | Purpose                               | Notes                                            |
-| ------------------- | ------------------------------------- | ------------------------------------------------ |
-| `pnpm run check`    | SvelteKit sync and Svelte/type checks | Non-mutating.                                    |
-| `pnpm run lint`     | Prettier check                        | Non-mutating.                                    |
-| `pnpm run test`     | Vitest with Cloudflare/miniflare pool | `pretest` builds and injects worker shims first. |
-| `pnpm run build`    | Cloudflare worker build               | Runs Vite build and inject scripts.              |
-| `pnpm run validate` | Composite validation gate             | Runs `lint`, `check`, and `test`.                |
+| Command                 | Purpose                               | Notes                                            |
+| ----------------------- | ------------------------------------- | ------------------------------------------------ |
+| `pnpm run check`        | SvelteKit sync and Svelte/type checks | Non-mutating.                                    |
+| `pnpm run lint`         | ESLint (semantic only)                | Non-mutating.                                    |
+| `pnpm run test`         | Vitest with Cloudflare/miniflare pool | `pretest` builds and injects worker shims first. |
+| `pnpm run build`        | Cloudflare worker build               | Runs Vite build and inject scripts.              |
+| `pnpm run validate`     | Canonical validation gate             | Runs `lint`, `check`, and `test`.                |
+| `pnpm run format:check` | Prettier check (manual diagnostic)    | Informational only — never part of the gate.     |
 
 ## Cloudflare resources
 

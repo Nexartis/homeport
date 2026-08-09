@@ -49,19 +49,22 @@ Every pull request must pass the same gate we run locally before
 pushing:
 
 ```bash
-pnpm run lint       # Prettier check
+pnpm run lint       # ESLint (semantic only)
 pnpm run check      # SvelteKit sync + Svelte/type checks
 pnpm run test       # Vitest inside @cloudflare/vitest-pool-workers
 ```
 
 The composite command is `pnpm run validate` — it runs `lint`,
-`check`, and `test` non-mutatively. A CI failure on any of these
-blocks the merge.
+`check`, and `test` non-mutatively and is the canonical gate. This
+repository has no CI pipeline; run the gate locally before pushing.
+Formatting is not gate-enforced — `pnpm run format` and
+`pnpm run format:check` are manual-only.
 
 ## Code style
 
 - Prettier is the formatter (`.prettierrc`); `pnpm run format`
-  writes fixes.
+  writes fixes and `pnpm run format:check` is a manual diagnostic —
+  formatting is not enforced by the validation gate.
 - Svelte 5 runes only (`$state`, `$derived`, `$effect`, `$props()`);
   no Svelte 4 syntax.
 - Cloudflare Workers runtime — no Node.js APIs. Use
@@ -90,8 +93,8 @@ blocks the merge.
 All commits must be signed off under the
 [Developer Certificate of Origin](https://developercertificate.org/).
 Use `git commit -s` (or add `Signed-off-by: Your Name
-<you@example.com>` to the commit message) on every commit. A CI
-check enforces this and will block merges from unsigned commits.
+<you@example.com>` to the commit message) on every commit —
+unsigned commits will not be merged.
 
 ## Conventional Commits
 

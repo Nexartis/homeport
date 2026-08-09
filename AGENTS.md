@@ -42,8 +42,11 @@ for the service-domain map before making non-trivial changes.
 ## Ground rules
 
 - **Follow the validation gate before proposing changes.** The gate
-  is `pnpm run lint && pnpm run check && pnpm run test` — same
-  commands humans run. Anything you propose must pass all three.
+  is `pnpm run validate` — `pnpm run lint && pnpm run check && pnpm run test` —
+  the same commands humans run. `lint` is ESLint (semantic only);
+  formatting is not gate-enforced — `pnpm run format` and
+  `pnpm run format:check` are manual-only. Anything you propose must
+  pass the full gate.
 - **Svelte 5 runes only.** `$state`, `$derived`, `$effect`,
   `$props()`. No Svelte 4 syntax.
 - **Cloudflare Workers runtime.** No Node.js APIs, no `process.env`

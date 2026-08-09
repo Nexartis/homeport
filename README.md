@@ -161,7 +161,7 @@ Useful commands:
 
 ```bash
 pnpm run check      # SvelteKit sync + Svelte/type checks
-pnpm run lint       # Prettier check
+pnpm run lint       # ESLint (semantic only)
 pnpm run test       # Vitest with Cloudflare/miniflare pool
 pnpm run build      # SvelteKit Cloudflare build + worker shims
 pnpm run validate   # Repo validation gate: lint + check + test
