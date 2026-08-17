@@ -56,14 +56,10 @@ export interface PuhProof {
 	/**
 	 * Ed25519 signature (base64, url-safe base64, or hex) over the canonical
 	 * envelope returned by `canonicalProofEnvelope`, verified against
-	 * `principalPk`. When present the server verifies it and rejects mismatches
-	 * with `invalid-proof`. When absent the server relies on the A2A route's
-	 * caller-identity check (`locals.user.id === delegatorId`) alone — see
-	 * review CRITICAL-2. The mobile-side signing endpoint is a follow-up:
-	 * once the Yanez preapproval-signing plumbing lands, this becomes required
-	 * (drop the optional, drop the "missing => allowed" branch below).
+	 * `principalPk`. Required. Missing, empty, malformed, wrong-key, and
+	 * wrong-subject signatures fail closed before any grant write.
 	 */
-	signature?: string;
+	signature: string;
 }
 
 export interface GrantInput {
@@ -231,6 +227,25 @@ function canonicalProofEnvelope(proof: PuhProof, subject: PuhProofSubject): stri
 }
 
 /**
+ * Reconstruct the PUH envelope from an A2A `proof` object. Preserves
+ * `signature` when the caller sent it; never invents one. Shared by the
+ * `/a2a` route so a stripped field cannot be dropped only on the wire path.
+ */
+export function reconstructPuhProof(proofPayload: unknown): PuhProof | null {
+	if (!proofPayload || typeof proofPayload !== 'object') return null;
+	const p = proofPayload as Record<string, unknown>;
+	const signatureRaw = p.signature ?? p.proof_signature;
+	return {
+		principalPk: String(p.principalPk ?? p.principal_pk ?? ''),
+		deviceDid: String(p.deviceDid ?? p.device_did ?? ''),
+		requestId: String(p.requestId ?? p.request_id ?? ''),
+		boundAt: Number(p.boundAt ?? p.bound_at ?? NaN),
+		issuedAt: Number(p.issuedAt ?? p.issued_at ?? NaN),
+		signature: typeof signatureRaw === 'string' ? signatureRaw : ''
+	};
+}
+
+/**
  * Verify a PUH proof is present, fresh, and binds cryptographically to
  * this exact grant. Throws `DelegationGrantError` on any failure; caller
  * maps the code to a JSON-RPC error.
@@ -304,29 +319,19 @@ export async function verifyPuhProof(
 		);
 	}
 
-	// SECURITY (review CRITICAL-2): when a signature is present, verify it
-	// against `principalPk`. This is defense in depth on top of the A2A
-	// route's caller-identity check (which is the load-bearing authorization
-	// gate). Once the mobile Yanez-signing plumbing lands, remove the
-	// optional and require `proof.signature` unconditionally.
-	if (proof.signature !== undefined) {
-		if (typeof proof.signature !== 'string' || !proof.signature) {
-			throw new DelegationGrantError(
-				'invalid-proof',
-				'PUH proof.signature must be a non-empty string when present'
-			);
-		}
-		const signatureOk = await verifyEd25519OverCanonical(
-			proof.principalPk,
-			canonical,
-			proof.signature
+	if (typeof proof.signature !== 'string' || !proof.signature) {
+		throw new DelegationGrantError('invalid-proof', 'PUH proof.signature is required');
+	}
+	const signatureOk = await verifyEd25519OverCanonical(
+		proof.principalPk,
+		canonical,
+		proof.signature
+	);
+	if (!signatureOk) {
+		throw new DelegationGrantError(
+			'invalid-proof',
+			'PUH proof.signature does not verify against principalPk'
 		);
-		if (!signatureOk) {
-			throw new DelegationGrantError(
-				'invalid-proof',
-				'PUH proof.signature does not verify against principalPk'
-			);
-		}
 	}
 }
 
