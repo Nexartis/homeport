@@ -50,9 +50,21 @@ const DDL = [
 
 const db = createDbClient(env.DB);
 
+let auditSigningKeyB64 = '';
+
 beforeAll(async () => {
 	await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
+	const pair = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [
+		'sign',
+		'verify'
+	])) as CryptoKeyPair;
+	const pkcs8 = await crypto.subtle.exportKey('pkcs8', pair.privateKey);
+	auditSigningKeyB64 = btoa(String.fromCharCode(...new Uint8Array(pkcs8)));
 });
+
+function auditEnv(): { KYM_NANDA_ED25519_PRIVATE_KEY_v1: string } {
+	return { KYM_NANDA_ED25519_PRIVATE_KEY_v1: auditSigningKeyB64 };
+}
 
 async function sha256Hex(input: string): Promise<string> {
 	const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
@@ -347,7 +359,7 @@ describe('grantDelegation — NND-D3 integration', () => {
 		await expect(
 			grantDelegation(
 				db,
-				{},
+				auditEnv(),
 				{
 					...base,
 					grantedByProofHash: hash,
@@ -363,7 +375,7 @@ describe('grantDelegation — NND-D3 integration', () => {
 		await expect(
 			grantDelegation(
 				db,
-				{},
+				auditEnv(),
 				{
 					...base,
 					grantedByProofHash: 'deadbeef',
@@ -386,7 +398,7 @@ describe('grantDelegation — NND-D3 integration', () => {
 		const hash = await computeHash(proof, subject);
 		const before = await env.DB.prepare('SELECT COUNT(*) AS n FROM delegation_tasks').first<{ n: number }>();
 		await expect(
-			grantDelegation(db, {}, { ...base, grantedByProofHash: hash, proof })
+			grantDelegation(db, auditEnv(), { ...base, grantedByProofHash: hash, proof })
 		).rejects.toMatchObject({ code: 'invalid-proof' });
 		const after = await env.DB.prepare('SELECT COUNT(*) AS n FROM delegation_tasks').first<{ n: number }>();
 		expect(after?.n).toBe(before?.n ?? 0);
@@ -405,7 +417,7 @@ describe('grantDelegation — NND-D3 integration', () => {
 		const hash = await computeHash(proof, subject);
 		const result = await grantDelegation(
 			db,
-			{},
+			auditEnv(),
 			{
 				...base,
 				grantedByProofHash: hash,
@@ -414,5 +426,35 @@ describe('grantDelegation — NND-D3 integration', () => {
 		);
 		expect(result.delegationId).toMatch(/^del-/);
 		expect(result.expiresAt).toBe(base.expiresAt);
+	});
+
+	it('does not persist a grant or unsigned audit when signing is unavailable', async () => {
+		const base = baseInput();
+		const subject = {
+			delegateId: base.delegateId,
+			grantedScope: base.grantedScope,
+			expiresAt: base.expiresAt,
+			parentDelegationId: null,
+			revocable: true
+		};
+		const proof = await signedProof(subject);
+		const hash = await computeHash(proof, subject);
+		const grantsBefore = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM delegation_tasks'
+		).first<{ n: number }>();
+		const auditsBefore = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM admin_audit_log'
+		).first<{ n: number }>();
+		await expect(
+			grantDelegation(db, {}, { ...base, grantedByProofHash: hash, proof })
+		).rejects.toMatchObject({ code: 'audit-signing-unavailable' });
+		const grantsAfter = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM delegation_tasks'
+		).first<{ n: number }>();
+		const auditsAfter = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM admin_audit_log'
+		).first<{ n: number }>();
+		expect(grantsAfter?.n).toBe(grantsBefore?.n ?? 0);
+		expect(auditsAfter?.n).toBe(auditsBefore?.n ?? 0);
 	});
 });

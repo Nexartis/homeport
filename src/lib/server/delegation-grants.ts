@@ -415,6 +415,12 @@ async function signAuditPayload(
 	env: GrantEnvironment,
 	payload: Record<string, unknown>
 ): Promise<{ payloadHash: string; signatureHex: string; publicKeyHex: string } | null> {
+	if (!env.KYM_NANDA_ED25519_PRIVATE_KEY_v1 && !env.NANDA_NODE_CACHE) {
+		throw new DelegationGrantError(
+			'audit-signing-unavailable',
+			'Regulated audit signing failed closed; unsigned audit is not evidence'
+		);
+	}
 	try {
 		const key = await importSigningKey({
 			KYM_NANDA_ED25519_PRIVATE_KEY_v1: env.KYM_NANDA_ED25519_PRIVATE_KEY_v1,
@@ -429,12 +435,13 @@ async function signAuditPayload(
 		const publicKeyHex = await derivePublicKeyHex(key);
 		return { payloadHash, signatureHex, publicKeyHex };
 	} catch (err) {
-		// Signing key missing/unavailable → still write the audit row (unsigned),
-		// but surface a warning. Fail-open here would defeat the audit trail.
 		log.warn('signAuditPayload', 'signing unavailable', {
 			err: err instanceof Error ? err.message : String(err)
 		});
-		return null;
+		throw new DelegationGrantError(
+			'audit-signing-unavailable',
+			'Regulated audit signing failed closed; unsigned audit is not evidence'
+		);
 	}
 }
 
@@ -447,6 +454,12 @@ async function writeSignedAudit(
 	actor?: GrantInput['actor']
 ): Promise<void> {
 	const signature = await signAuditPayload(env, payload);
+	if (!signature) {
+		throw new DelegationGrantError(
+			'audit-signing-unavailable',
+			'Regulated audit signing failed closed; unsigned audit is not evidence'
+		);
+	}
 	await appendAudit(db, {
 		eventType,
 		actorUserId: actor?.userId ?? null,
@@ -539,6 +552,20 @@ export async function grantDelegation(
 	}
 
 	const id = `del-${nanoid()}`;
+	const grantedAt = now;
+	const auditPayload = {
+		delegationId: id,
+		delegatorId: input.delegatorId,
+		delegateId: input.delegateId,
+		action: input.action,
+		grantedScope: input.grantedScope,
+		expiresAt: input.expiresAt,
+		parentDelegationId: input.parentDelegationId ?? null,
+		revocable,
+		grantedByProofHash: input.grantedByProofHash,
+		grantedAt
+	};
+	await signAuditPayload(env, auditPayload);
 	await db.insert(delegationTasks).values({
 		id,
 		parentWorkflowId: input.parentWorkflowId ?? null,
@@ -560,25 +587,7 @@ export async function grantDelegation(
 		startedAt: now
 	});
 
-	await writeSignedAudit(
-		db,
-		env,
-		'delegation.grant',
-		id,
-		{
-			delegationId: id,
-			delegatorId: input.delegatorId,
-			delegateId: input.delegateId,
-			action: input.action,
-			grantedScope: input.grantedScope,
-			expiresAt: input.expiresAt,
-			parentDelegationId: input.parentDelegationId ?? null,
-			revocable,
-			grantedByProofHash: input.grantedByProofHash,
-			grantedAt: now
-		},
-		input.actor
-	);
+	await writeSignedAudit(db, env, 'delegation.grant', id, auditPayload, input.actor);
 
 	return { delegationId: id, kymVcId: null, expiresAt: input.expiresAt };
 }
@@ -615,6 +624,13 @@ export async function revokeDelegation(
 	const now = Math.floor(Date.now() / 1000);
 	const cascadeIds = await collectDescendants(db, input.delegationId);
 	const allIds = [input.delegationId, ...cascadeIds];
+	const revokePayload = {
+		delegationId: input.delegationId,
+		reason: input.reason ?? 'Revoked',
+		cascadedIds: cascadeIds,
+		revokedAt: now
+	};
+	await signAuditPayload(env, revokePayload);
 
 	await db
 		.update(delegationTasks)
@@ -626,19 +642,7 @@ export async function revokeDelegation(
 		})
 		.where(inArray(delegationTasks.id, allIds));
 
-	await writeSignedAudit(
-		db,
-		env,
-		'delegation.revoke',
-		input.delegationId,
-		{
-			delegationId: input.delegationId,
-			reason: input.reason ?? 'Revoked',
-			cascadedIds: cascadeIds,
-			revokedAt: now
-		},
-		input.actor
-	);
+	await writeSignedAudit(db, env, 'delegation.revoke', input.delegationId, revokePayload, input.actor);
 
 	return { revoked: true, revokedAt: now, cascadedIds: cascadeIds };
 }
