@@ -42,6 +42,19 @@
  *               auto_discover:
  *                 type: boolean
  *                 description: When true, auto-discover protocols at agent_url
+ *               visibility:
+ *                 type: string
+ *                 enum: [private, unlisted, public, for_hire]
+ *                 description: Discovery visibility (default public)
+ *               capability_manifest:
+ *                 type: array
+ *                 description: Array of capability manifest entries
+ *               mcp_metadata:
+ *                 type: object
+ *                 description: MCP server metadata
+ *               pricing:
+ *                 type: object
+ *                 description: Pricing descriptor
  *     responses:
  *       200:
  *         description: Agent registered successfully
@@ -57,6 +70,16 @@ import { createDbClient } from '$lib/db/client';
 import { createLogger } from '$lib/utils/logger';
 import { resolveAndSign } from '$lib/crypto/sign-agent';
 import { SwitchboardService } from '$lib/services/switchboard';
+import {
+	AGENT_VISIBILITIES,
+	normalizeVisibility,
+	validateCapabilityManifest,
+	validateMcpMetadata,
+	validatePricingDescriptor,
+	type CapabilityManifestEntry,
+	type McpMetadata,
+	type PricingDescriptor
+} from '$lib/types/agent-visibility';
 
 const log = createLogger(undefined, 'register');
 
@@ -153,6 +176,24 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				return json({ error: 'tags must be an array of strings' }, { status: 400 });
 			}
 		}
+		if (body.visibility !== undefined && normalizeVisibility(body.visibility) === null) {
+			return json(
+				{ error: `visibility must be one of: ${AGENT_VISIBILITIES.join(', ')}` },
+				{ status: 400 }
+			);
+		}
+		if (body.capability_manifest !== undefined) {
+			const err = validateCapabilityManifest(body.capability_manifest);
+			if (err) return json({ error: err }, { status: 400 });
+		}
+		if (body.mcp_metadata !== undefined) {
+			const err = validateMcpMetadata(body.mcp_metadata);
+			if (err) return json({ error: err }, { status: 400 });
+		}
+		if (body.pricing !== undefined) {
+			const err = validatePricingDescriptor(body.pricing);
+			if (err) return json({ error: err }, { status: 400 });
+		}
 		// Sign with Ed25519 — throws if key is not configured
 		const sig = await resolveAndSign(body.agent_id as string, env);
 
@@ -163,6 +204,10 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 			facts_url: body.facts_url as string | undefined,
 			capabilities: body.capabilities as string[] | undefined,
 			tags: body.tags as string[] | undefined,
+			visibility: normalizeVisibility(body.visibility) ?? 'public',
+			capability_manifest: body.capability_manifest as CapabilityManifestEntry[] | undefined,
+			mcp_metadata: body.mcp_metadata as McpMetadata | undefined,
+			pricing: body.pricing as PricingDescriptor | undefined,
 			source: 'local',
 			...sig
 		});

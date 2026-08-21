@@ -5,9 +5,10 @@
  * JSON fields (capabilities, tags) are stored as TEXT and parsed on read.
  */
 
-import { eq, sql, like, and, or } from 'drizzle-orm';
+import { eq, sql, like, and, or, inArray } from 'drizzle-orm';
 import type { DbClient } from '../client';
 import { agentAddrs, agentFacts, agentVersions, type NewAgentAddrRecord } from '../schema';
+import { DISCOVERABLE_VISIBILITIES } from '$lib/types/agent-visibility';
 
 // ===================================================================
 // Agent CRUD
@@ -28,6 +29,10 @@ export async function upsertAgent(db: DbClient, agent: NewAgentAddrRecord) {
 				tags: sql`excluded.tags`,
 				source: sql`excluded.source`,
 				status: sql`excluded.status`,
+				visibility: sql`excluded.visibility`,
+				capabilityManifest: sql`excluded.capability_manifest`,
+				mcpMetadata: sql`excluded.mcp_metadata`,
+				pricing: sql`excluded.pricing`,
 				publicKeyHex: sql`excluded.public_key_hex`,
 				signatureHex: sql`excluded.signature_hex`,
 				signerId: sql`excluded.signer_id`,
@@ -47,11 +52,12 @@ export async function getAgentById(db: DbClient, agentId: string) {
 	);
 }
 
-/** List all agents (minimal columns for listing) */
+/** List all discoverable agents (visibility public/for_hire) with full columns */
 export async function listAllAgents(db: DbClient) {
 	return await db
-		.select({ agentId: agentAddrs.agentId, agentUrl: agentAddrs.agentUrl })
-		.from(agentAddrs);
+		.select()
+		.from(agentAddrs)
+		.where(inArray(agentAddrs.visibility, [...DISCOVERABLE_VISIBILITIES]));
 }
 
 /** Search agents with optional query and capability filter.
@@ -74,10 +80,12 @@ export async function searchAgents(
 		);
 	}
 
+	conditions.push(inArray(agentAddrs.visibility, [...DISCOVERABLE_VISIBILITIES]));
+
 	let results = await db
 		.select()
 		.from(agentAddrs)
-		.where(conditions.length > 0 ? and(...conditions) : undefined);
+		.where(and(...conditions));
 
 	// If query didn't match, also try searching agent_facts.agent_name
 	if (opts?.query && results.length === 0) {
@@ -92,7 +100,10 @@ export async function searchAgents(
 			const additionalResults = [];
 			for (const id of matchedIds) {
 				const row = await db.query.agentAddrs.findFirst({
-					where: eq(agentAddrs.agentId, id)
+					where: and(
+						eq(agentAddrs.agentId, id),
+						inArray(agentAddrs.visibility, [...DISCOVERABLE_VISIBILITIES])
+					)
 				});
 				if (row) additionalResults.push(row);
 			}

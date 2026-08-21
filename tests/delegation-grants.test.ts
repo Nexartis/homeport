@@ -13,6 +13,7 @@ import { createDbClient } from '../src/lib/db/client';
 import {
 	grantDelegation,
 	verifyPuhProof,
+	reconstructPuhProof,
 	DelegationGrantError,
 	PUH_FRESHNESS_MS,
 	type PuhProof
@@ -49,9 +50,21 @@ const DDL = [
 
 const db = createDbClient(env.DB);
 
+let auditSigningKeyB64 = '';
+
 beforeAll(async () => {
 	await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
+	const pair = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [
+		'sign',
+		'verify'
+	])) as CryptoKeyPair;
+	const pkcs8 = await crypto.subtle.exportKey('pkcs8', pair.privateKey);
+	auditSigningKeyB64 = btoa(String.fromCharCode(...new Uint8Array(pkcs8)));
 });
+
+function auditEnv(): { KYM_NANDA_ED25519_PRIVATE_KEY_v1: string } {
+	return { KYM_NANDA_ED25519_PRIVATE_KEY_v1: auditSigningKeyB64 };
+}
 
 async function sha256Hex(input: string): Promise<string> {
 	const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
@@ -90,6 +103,82 @@ async function computeHash(
 	return sha256Hex(canonical);
 }
 
+function hexOf(bytes: Uint8Array): string {
+	return Array.from(bytes)
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+}
+
+function canonicalString(
+	proof: PuhProof,
+	subject: {
+		delegateId: string;
+		grantedScope: string[];
+		expiresAt: number;
+		parentDelegationId: string | null;
+		revocable: boolean;
+	}
+): string {
+	const toolNames = subject.grantedScope
+		.map((s) => s.trim())
+		.filter(Boolean)
+		.sort();
+	return JSON.stringify({
+		principalPk: proof.principalPk,
+		deviceDid: proof.deviceDid,
+		requestId: proof.requestId,
+		grantee: subject.delegateId,
+		scope: { toolNames },
+		expiresAt: subject.expiresAt,
+		parentDelegationId: subject.parentDelegationId,
+		revocable: subject.revocable,
+		issuedAt: proof.issuedAt
+	});
+}
+
+async function generatePrincipal(): Promise<{ pkHex: string; privateKey: CryptoKey }> {
+	const pair = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [
+		'sign',
+		'verify'
+	])) as CryptoKeyPair;
+	const raw = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
+	return { pkHex: hexOf(raw), privateKey: pair.privateKey };
+}
+
+async function signCanonical(privateKey: CryptoKey, canonical: string): Promise<string> {
+	const sig = new Uint8Array(
+		await crypto.subtle.sign('Ed25519', privateKey, new TextEncoder().encode(canonical))
+	);
+	return hexOf(sig);
+}
+
+async function signedProof(
+	subject: {
+		delegateId: string;
+		grantedScope: string[];
+		expiresAt: number;
+		parentDelegationId: string | null;
+		revocable: boolean;
+	},
+	overrides: Partial<PuhProof> = {}
+): Promise<PuhProof> {
+	const { pkHex, privateKey } = await generatePrincipal();
+	const now = Date.now();
+	const proof: PuhProof = {
+		principalPk: pkHex,
+		deviceDid: 'did:key:z6Mkdevice',
+		requestId: 'yz-req-01',
+		boundAt: now - 1_000,
+		issuedAt: now - 500,
+		signature: '',
+		...overrides
+	};
+	if (!('signature' in overrides)) {
+		proof.signature = await signCanonical(privateKey, canonicalString(proof, subject));
+	}
+	return proof;
+}
+
 function freshProof(overrides: Partial<PuhProof> = {}): PuhProof {
 	const now = Date.now();
 	return {
@@ -98,6 +187,7 @@ function freshProof(overrides: Partial<PuhProof> = {}): PuhProof {
 		requestId: 'yz-req-01',
 		boundAt: now - 1_000,
 		issuedAt: now - 500,
+		signature: '',
 		...overrides
 	};
 }
@@ -161,8 +251,72 @@ describe('verifyPuhProof — NND-D3', () => {
 		).rejects.toMatchObject({ code: 'proof-hash-mismatch' });
 	});
 
-	it('accepts a fresh, correctly bound proof', async () => {
-		const proof = freshProof();
+	it('rejects a missing signature before any grant write', async () => {
+		const proof = await signedProof(subject, { signature: '' });
+		const hash = await computeHash(proof, subject);
+		await expect(
+			verifyPuhProof({ proof, grantedByProofHash: hash, subject })
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+	});
+
+	it('rejects an A2A-stripped signature (reconstruct drops unsigned field)', async () => {
+		const signed = await signedProof(subject);
+		const { signature: _dropped, ...wire } = signed;
+		const reconstructed = reconstructPuhProof(wire);
+		expect(reconstructed?.signature).toBe('');
+		const hash = await computeHash(reconstructed!, subject);
+		await expect(
+			verifyPuhProof({ proof: reconstructed, grantedByProofHash: hash, subject })
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+	});
+
+	it('preserves signature through A2A reconstruction', async () => {
+		const signed = await signedProof(subject);
+		const reconstructed = reconstructPuhProof({
+			principal_pk: signed.principalPk,
+			device_did: signed.deviceDid,
+			request_id: signed.requestId,
+			bound_at: signed.boundAt,
+			issued_at: signed.issuedAt,
+			signature: signed.signature
+		});
+		expect(reconstructed?.signature).toBe(signed.signature);
+		const hash = await computeHash(reconstructed!, subject);
+		await expect(
+			verifyPuhProof({ proof: reconstructed, grantedByProofHash: hash, subject })
+		).resolves.toBeUndefined();
+	});
+
+	it('rejects a malformed signature', async () => {
+		const proof = await signedProof(subject, { signature: 'not-a-signature!!!' });
+		const hash = await computeHash(proof, subject);
+		await expect(
+			verifyPuhProof({ proof, grantedByProofHash: hash, subject })
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+	});
+
+	it('rejects a signature from the wrong key', async () => {
+		const other = await generatePrincipal();
+		const proof = await signedProof(subject);
+		const canonical = canonicalString(proof, subject);
+		proof.signature = await signCanonical(other.privateKey, canonical);
+		const hash = await computeHash(proof, subject);
+		await expect(
+			verifyPuhProof({ proof, grantedByProofHash: hash, subject })
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+	});
+
+	it('rejects a signature bound to a different subject', async () => {
+		const otherSubject = { ...subject, delegateId: 'agent-attacker' };
+		const signedForOther = await signedProof(otherSubject);
+		const hash = await computeHash(signedForOther, subject);
+		await expect(
+			verifyPuhProof({ proof: signedForOther, grantedByProofHash: hash, subject })
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+	});
+
+	it('accepts a fresh, correctly bound signed proof', async () => {
+		const proof = await signedProof(subject);
 		const hash = await computeHash(proof, subject);
 		await expect(
 			verifyPuhProof({ proof, grantedByProofHash: hash, subject })
@@ -170,7 +324,7 @@ describe('verifyPuhProof — NND-D3', () => {
 	});
 
 	it('is scope-order-insensitive (envelope sorts toolNames)', async () => {
-		const proof = freshProof();
+		const proof = await signedProof(subject);
 		const hashSorted = await computeHash(proof, subject);
 		const shuffled = { ...subject, grantedScope: [...subject.grantedScope].reverse() };
 		await expect(
@@ -205,7 +359,7 @@ describe('grantDelegation — NND-D3 integration', () => {
 		await expect(
 			grantDelegation(
 				db,
-				{},
+				auditEnv(),
 				{
 					...base,
 					grantedByProofHash: hash,
@@ -221,7 +375,7 @@ describe('grantDelegation — NND-D3 integration', () => {
 		await expect(
 			grantDelegation(
 				db,
-				{},
+				auditEnv(),
 				{
 					...base,
 					grantedByProofHash: 'deadbeef',
@@ -231,19 +385,39 @@ describe('grantDelegation — NND-D3 integration', () => {
 		).rejects.toMatchObject({ code: 'proof-hash-mismatch' });
 	});
 
-	it('persists a grant when the proof envelope binds correctly', async () => {
+	it('does not persist a grant when the signature is missing', async () => {
 		const base = baseInput();
-		const proof = freshProof();
-		const hash = await computeHash(proof, {
+		const subject = {
 			delegateId: base.delegateId,
 			grantedScope: base.grantedScope,
 			expiresAt: base.expiresAt,
 			parentDelegationId: null,
 			revocable: true
-		});
+		};
+		const proof = await signedProof(subject, { signature: '' });
+		const hash = await computeHash(proof, subject);
+		const before = await env.DB.prepare('SELECT COUNT(*) AS n FROM delegation_tasks').first<{ n: number }>();
+		await expect(
+			grantDelegation(db, auditEnv(), { ...base, grantedByProofHash: hash, proof })
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+		const after = await env.DB.prepare('SELECT COUNT(*) AS n FROM delegation_tasks').first<{ n: number }>();
+		expect(after?.n).toBe(before?.n ?? 0);
+	});
+
+	it('persists a grant when the signed proof envelope binds correctly', async () => {
+		const base = baseInput();
+		const subject = {
+			delegateId: base.delegateId,
+			grantedScope: base.grantedScope,
+			expiresAt: base.expiresAt,
+			parentDelegationId: null,
+			revocable: true
+		};
+		const proof = await signedProof(subject);
+		const hash = await computeHash(proof, subject);
 		const result = await grantDelegation(
 			db,
-			{},
+			auditEnv(),
 			{
 				...base,
 				grantedByProofHash: hash,
@@ -252,5 +426,35 @@ describe('grantDelegation — NND-D3 integration', () => {
 		);
 		expect(result.delegationId).toMatch(/^del-/);
 		expect(result.expiresAt).toBe(base.expiresAt);
+	});
+
+	it('does not persist a grant or unsigned audit when signing is unavailable', async () => {
+		const base = baseInput();
+		const subject = {
+			delegateId: base.delegateId,
+			grantedScope: base.grantedScope,
+			expiresAt: base.expiresAt,
+			parentDelegationId: null,
+			revocable: true
+		};
+		const proof = await signedProof(subject);
+		const hash = await computeHash(proof, subject);
+		const grantsBefore = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM delegation_tasks'
+		).first<{ n: number }>();
+		const auditsBefore = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM admin_audit_log'
+		).first<{ n: number }>();
+		await expect(
+			grantDelegation(db, {}, { ...base, grantedByProofHash: hash, proof })
+		).rejects.toMatchObject({ code: 'audit-signing-unavailable' });
+		const grantsAfter = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM delegation_tasks'
+		).first<{ n: number }>();
+		const auditsAfter = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM admin_audit_log'
+		).first<{ n: number }>();
+		expect(grantsAfter?.n).toBe(grantsBefore?.n ?? 0);
+		expect(auditsAfter?.n).toBe(auditsBefore?.n ?? 0);
 	});
 });

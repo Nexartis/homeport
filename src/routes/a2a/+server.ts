@@ -41,6 +41,7 @@ import {
 	grantDelegation,
 	revokeDelegation,
 	checkDelegation,
+	reconstructPuhProof,
 	DelegationGrantError
 } from '$lib/server/delegation-grants';
 import { extractClientIp } from '$lib/server/audit-helpers';
@@ -178,17 +179,9 @@ export const POST: RequestHandler = async (event) => {
 							: typeof payload.expiresAt === 'number'
 								? payload.expiresAt
 								: NaN;
-					const proofPayload = (payload.proof ?? null) as Record<string, unknown> | null;
 					const proof =
-						proofPayload && typeof proofPayload === 'object'
-							? {
-									principalPk: String(proofPayload.principalPk ?? proofPayload.principal_pk ?? ''),
-									deviceDid: String(proofPayload.deviceDid ?? proofPayload.device_did ?? ''),
-									requestId: String(proofPayload.requestId ?? proofPayload.request_id ?? ''),
-									boundAt: Number(proofPayload.boundAt ?? proofPayload.bound_at ?? NaN),
-									issuedAt: Number(proofPayload.issuedAt ?? proofPayload.issued_at ?? NaN)
-								}
-							: (undefined as unknown as import('$lib/server/delegation-grants').PuhProof);
+						reconstructPuhProof(payload.proof) ??
+						(undefined as unknown as import('$lib/server/delegation-grants').PuhProof);
 					const result = await grantDelegation(db, env, {
 						delegatorId:
 							(payload.granted_by_did as string) ??
@@ -207,7 +200,7 @@ export const POST: RequestHandler = async (event) => {
 							(payload.granted_by_proof_hash as string) ??
 							(payload.grantedByProofHash as string) ??
 							'',
-						proof: proof as import('$lib/server/delegation-grants').PuhProof,
+						proof,
 						parentDelegationId:
 							(payload.parent_delegation_id as string | undefined) ??
 							(payload.parentDelegationId as string | undefined) ??

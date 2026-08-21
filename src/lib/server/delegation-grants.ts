@@ -56,14 +56,10 @@ export interface PuhProof {
 	/**
 	 * Ed25519 signature (base64, url-safe base64, or hex) over the canonical
 	 * envelope returned by `canonicalProofEnvelope`, verified against
-	 * `principalPk`. When present the server verifies it and rejects mismatches
-	 * with `invalid-proof`. When absent the server relies on the A2A route's
-	 * caller-identity check (`locals.user.id === delegatorId`) alone — see
-	 * review CRITICAL-2. The mobile-side signing endpoint is a follow-up:
-	 * once the Yanez preapproval-signing plumbing lands, this becomes required
-	 * (drop the optional, drop the "missing => allowed" branch below).
+	 * `principalPk`. Required. Missing, empty, malformed, wrong-key, and
+	 * wrong-subject signatures fail closed before any grant write.
 	 */
-	signature?: string;
+	signature: string;
 }
 
 export interface GrantInput {
@@ -231,6 +227,25 @@ function canonicalProofEnvelope(proof: PuhProof, subject: PuhProofSubject): stri
 }
 
 /**
+ * Reconstruct the PUH envelope from an A2A `proof` object. Preserves
+ * `signature` when the caller sent it; never invents one. Shared by the
+ * `/a2a` route so a stripped field cannot be dropped only on the wire path.
+ */
+export function reconstructPuhProof(proofPayload: unknown): PuhProof | null {
+	if (!proofPayload || typeof proofPayload !== 'object') return null;
+	const p = proofPayload as Record<string, unknown>;
+	const signatureRaw = p.signature ?? p.proof_signature;
+	return {
+		principalPk: String(p.principalPk ?? p.principal_pk ?? ''),
+		deviceDid: String(p.deviceDid ?? p.device_did ?? ''),
+		requestId: String(p.requestId ?? p.request_id ?? ''),
+		boundAt: Number(p.boundAt ?? p.bound_at ?? NaN),
+		issuedAt: Number(p.issuedAt ?? p.issued_at ?? NaN),
+		signature: typeof signatureRaw === 'string' ? signatureRaw : ''
+	};
+}
+
+/**
  * Verify a PUH proof is present, fresh, and binds cryptographically to
  * this exact grant. Throws `DelegationGrantError` on any failure; caller
  * maps the code to a JSON-RPC error.
@@ -304,29 +319,19 @@ export async function verifyPuhProof(
 		);
 	}
 
-	// SECURITY (review CRITICAL-2): when a signature is present, verify it
-	// against `principalPk`. This is defense in depth on top of the A2A
-	// route's caller-identity check (which is the load-bearing authorization
-	// gate). Once the mobile Yanez-signing plumbing lands, remove the
-	// optional and require `proof.signature` unconditionally.
-	if (proof.signature !== undefined) {
-		if (typeof proof.signature !== 'string' || !proof.signature) {
-			throw new DelegationGrantError(
-				'invalid-proof',
-				'PUH proof.signature must be a non-empty string when present'
-			);
-		}
-		const signatureOk = await verifyEd25519OverCanonical(
-			proof.principalPk,
-			canonical,
-			proof.signature
+	if (typeof proof.signature !== 'string' || !proof.signature) {
+		throw new DelegationGrantError('invalid-proof', 'PUH proof.signature is required');
+	}
+	const signatureOk = await verifyEd25519OverCanonical(
+		proof.principalPk,
+		canonical,
+		proof.signature
+	);
+	if (!signatureOk) {
+		throw new DelegationGrantError(
+			'invalid-proof',
+			'PUH proof.signature does not verify against principalPk'
 		);
-		if (!signatureOk) {
-			throw new DelegationGrantError(
-				'invalid-proof',
-				'PUH proof.signature does not verify against principalPk'
-			);
-		}
 	}
 }
 
@@ -410,6 +415,12 @@ async function signAuditPayload(
 	env: GrantEnvironment,
 	payload: Record<string, unknown>
 ): Promise<{ payloadHash: string; signatureHex: string; publicKeyHex: string } | null> {
+	if (!env.KYM_NANDA_ED25519_PRIVATE_KEY_v1 && !env.NANDA_NODE_CACHE) {
+		throw new DelegationGrantError(
+			'audit-signing-unavailable',
+			'Regulated audit signing failed closed; unsigned audit is not evidence'
+		);
+	}
 	try {
 		const key = await importSigningKey({
 			KYM_NANDA_ED25519_PRIVATE_KEY_v1: env.KYM_NANDA_ED25519_PRIVATE_KEY_v1,
@@ -424,12 +435,13 @@ async function signAuditPayload(
 		const publicKeyHex = await derivePublicKeyHex(key);
 		return { payloadHash, signatureHex, publicKeyHex };
 	} catch (err) {
-		// Signing key missing/unavailable → still write the audit row (unsigned),
-		// but surface a warning. Fail-open here would defeat the audit trail.
 		log.warn('signAuditPayload', 'signing unavailable', {
 			err: err instanceof Error ? err.message : String(err)
 		});
-		return null;
+		throw new DelegationGrantError(
+			'audit-signing-unavailable',
+			'Regulated audit signing failed closed; unsigned audit is not evidence'
+		);
 	}
 }
 
@@ -442,6 +454,12 @@ async function writeSignedAudit(
 	actor?: GrantInput['actor']
 ): Promise<void> {
 	const signature = await signAuditPayload(env, payload);
+	if (!signature) {
+		throw new DelegationGrantError(
+			'audit-signing-unavailable',
+			'Regulated audit signing failed closed; unsigned audit is not evidence'
+		);
+	}
 	await appendAudit(db, {
 		eventType,
 		actorUserId: actor?.userId ?? null,
@@ -534,6 +552,20 @@ export async function grantDelegation(
 	}
 
 	const id = `del-${nanoid()}`;
+	const grantedAt = now;
+	const auditPayload = {
+		delegationId: id,
+		delegatorId: input.delegatorId,
+		delegateId: input.delegateId,
+		action: input.action,
+		grantedScope: input.grantedScope,
+		expiresAt: input.expiresAt,
+		parentDelegationId: input.parentDelegationId ?? null,
+		revocable,
+		grantedByProofHash: input.grantedByProofHash,
+		grantedAt
+	};
+	await signAuditPayload(env, auditPayload);
 	await db.insert(delegationTasks).values({
 		id,
 		parentWorkflowId: input.parentWorkflowId ?? null,
@@ -555,25 +587,7 @@ export async function grantDelegation(
 		startedAt: now
 	});
 
-	await writeSignedAudit(
-		db,
-		env,
-		'delegation.grant',
-		id,
-		{
-			delegationId: id,
-			delegatorId: input.delegatorId,
-			delegateId: input.delegateId,
-			action: input.action,
-			grantedScope: input.grantedScope,
-			expiresAt: input.expiresAt,
-			parentDelegationId: input.parentDelegationId ?? null,
-			revocable,
-			grantedByProofHash: input.grantedByProofHash,
-			grantedAt: now
-		},
-		input.actor
-	);
+	await writeSignedAudit(db, env, 'delegation.grant', id, auditPayload, input.actor);
 
 	return { delegationId: id, kymVcId: null, expiresAt: input.expiresAt };
 }
@@ -610,6 +624,13 @@ export async function revokeDelegation(
 	const now = Math.floor(Date.now() / 1000);
 	const cascadeIds = await collectDescendants(db, input.delegationId);
 	const allIds = [input.delegationId, ...cascadeIds];
+	const revokePayload = {
+		delegationId: input.delegationId,
+		reason: input.reason ?? 'Revoked',
+		cascadedIds: cascadeIds,
+		revokedAt: now
+	};
+	await signAuditPayload(env, revokePayload);
 
 	await db
 		.update(delegationTasks)
@@ -621,19 +642,7 @@ export async function revokeDelegation(
 		})
 		.where(inArray(delegationTasks.id, allIds));
 
-	await writeSignedAudit(
-		db,
-		env,
-		'delegation.revoke',
-		input.delegationId,
-		{
-			delegationId: input.delegationId,
-			reason: input.reason ?? 'Revoked',
-			cascadedIds: cascadeIds,
-			revokedAt: now
-		},
-		input.actor
-	);
+	await writeSignedAudit(db, env, 'delegation.revoke', input.delegationId, revokePayload, input.actor);
 
 	return { revoked: true, revokedAt: now, cascadedIds: cascadeIds };
 }

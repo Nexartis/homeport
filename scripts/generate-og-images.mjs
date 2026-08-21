@@ -284,7 +284,8 @@ const PAGES = [
 		slug: 'developers',
 		title: 'Developers',
 		section: 'Developers',
-		subtitle: 'Build on Homeport — API keys, docs, and tools for AI agent registration and discovery'
+		subtitle:
+			'Build on Homeport — API keys, docs, and tools for AI agent registration and discovery'
 	},
 	{
 		slug: 'docs-billing',
@@ -332,13 +333,15 @@ const PAGES = [
 		slug: 'docs-webhooks',
 		title: 'Webhooks',
 		section: 'Docs',
-		subtitle: 'Real-time event notifications with HMAC-SHA256 signing and circuit breaker protection'
+		subtitle:
+			'Real-time event notifications with HMAC-SHA256 signing and circuit breaker protection'
 	},
 	{
 		slug: 'sdk',
 		title: 'SDK',
 		section: 'Docs',
-		subtitle: 'The official Homeport TypeScript SDK — registration, A2A discovery, and orchestration'
+		subtitle:
+			'The official Homeport TypeScript SDK — registration, A2A discovery, and orchestration'
 	},
 	{
 		slug: 'self-hosting',

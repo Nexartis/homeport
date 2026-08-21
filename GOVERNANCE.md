@@ -91,7 +91,7 @@ for routine work.
   makes the final call. Maintainer decisions can be appealed in a
   subsequent RFC.
 - Non-controversial fixes (documentation, typos, dependency bumps
-  that pass CI) do not require a 72-hour wait.
+  that pass `pnpm run validate`) do not require a 72-hour wait.
 
 ## RFC process for breaking changes
 

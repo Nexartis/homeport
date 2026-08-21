@@ -14,6 +14,7 @@ focused sub-docs so this one stays short.
 | Concern                                                       | Owner                                                                                |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Registry, AgentFacts, discovery, SafeSearch, AgentAddr        | [`REGISTRY_DISCOVERY.md`](REGISTRY_DISCOVERY.md)                                     |
+| Agent visibility, capability manifest, MCP metadata, pricing  | [`VISIBILITY_LIFECYCLE.md`](VISIBILITY_LIFECYCLE.md)                                 |
 | Certification, compliance, observer, reputation, credentials  | [`CERTIFICATION_COMPLIANCE.md`](CERTIFICATION_COMPLIANCE.md)                         |
 | Federation, resolver, Lean Index, protocol switchboard        | [`FEDERATION_RESOLUTION.md`](FEDERATION_RESOLUTION.md)                               |
 | Workflow orchestration, routing, delegation, events           | [`ORCHESTRATION.md`](ORCHESTRATION.md)                                               |

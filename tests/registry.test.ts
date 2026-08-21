@@ -132,17 +132,26 @@ describe('Registry Service', () => {
 		expect(agent).toBeNull();
 	});
 
-	it('should list agents as flat dict', async () => {
+	it('should list discoverable agents as rich records', async () => {
 		await registerSignedAgent({ agent_id: 'agent-2', agent_url: 'https://agent2.example.com' });
 		const list = await listAgents(db);
-		expect(list['agent-1']).toBe('https://agent1.example.com');
-		expect(list['agent-2']).toBe('https://agent2.example.com');
+		const byId = Object.fromEntries(list.map((a) => [a.agent_id as string, a]));
+		expect(byId['agent-1'].agent_url).toBe('https://agent1.example.com');
+		expect(byId['agent-2'].agent_url).toBe('https://agent2.example.com');
+		expect(byId['agent-1'].visibility).toBe('public');
 	});
 
 	it('should search agents by query substring', async () => {
-		const results = await searchAgents(db, 'agent-1');
+		// Unique id: the shared single-worker D1 may already contain agents
+		// seeded by other suites whose ids contain generic substrings.
+		const uniqueId = `uniq-search-${Date.now()}`;
+		await registerSignedAgent({
+			agent_id: uniqueId,
+			agent_url: 'https://uniq-search.example.com'
+		});
+		const results = await searchAgents(db, uniqueId);
 		expect(results.length).toBe(1);
-		expect(results[0].agent_id).toBe('agent-1');
+		expect(results[0].agent_id).toBe(uniqueId);
 	});
 
 	it('should search agents by capability', async () => {
@@ -268,11 +277,14 @@ describe('Registry HTTP Routes', () => {
 		expect(res.status).toBe(404);
 	});
 
-	it('GET /list returns flat dict', async () => {
+	it('GET /list returns discoverable agents as rich records', async () => {
 		const res = await SELF.fetch('https://fake.host/list');
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, string>;
-		expect(body['http-agent']).toBe('https://http.example.com');
+		const body = (await res.json()) as Record<string, unknown>[];
+		const agent = body.find((a) => a.agent_id === 'http-agent');
+		expect(agent).toBeDefined();
+		expect(agent!.agent_url).toBe('https://http.example.com');
+		expect(agent!.visibility).toBe('public');
 	});
 
 	it('GET /search returns results', async () => {

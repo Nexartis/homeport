@@ -263,6 +263,28 @@
                   "auto_discover": {
                     "type": "boolean",
                     "description": "When true, auto-discover protocols at agent_url"
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": [
+                      "private",
+                      "unlisted",
+                      "public",
+                      "for_hire"
+                    ],
+                    "description": "Discovery visibility (default public)"
+                  },
+                  "capability_manifest": {
+                    "type": "array",
+                    "description": "Array of capability manifest entries"
+                  },
+                  "mcp_metadata": {
+                    "type": "object",
+                    "description": "MCP server metadata"
+                  },
+                  "pricing": {
+                    "type": "object",
+                    "description": "Pricing descriptor"
                   }
                 }
               }

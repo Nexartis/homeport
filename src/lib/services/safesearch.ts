@@ -11,9 +11,10 @@
  * @see DECENTRALIZED_AGENT_DNS_IMPLEMENTATION_PLAN.md §Phase F
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import type { DbClient } from '$lib/db/client';
 import { agentAddrs, agentFacts, crossRegistryScores } from '$lib/db/schema';
+import { DISCOVERABLE_VISIBILITIES } from '$lib/types/agent-visibility';
 import type { SafeSearchQuery, SafeSearchResult } from '$lib/types/safesearch';
 import { createLogger } from '$lib/utils/logger';
 
@@ -61,7 +62,12 @@ export class SafeSearchService {
 			.from(agentAddrs)
 			.leftJoin(agentFacts, eq(agentAddrs.agentId, agentFacts.agentId))
 			.leftJoin(crossRegistryScores, eq(agentAddrs.agentId, crossRegistryScores.agentId))
-			.where(eq(agentAddrs.status, 'alive'));
+			.where(
+				and(
+					eq(agentAddrs.status, 'alive'),
+					inArray(agentAddrs.visibility, [...DISCOVERABLE_VISIBILITIES])
+				)
+			);
 
 		// Apply SafeSearch filters in-memory (D1 doesn't support complex JOINs well)
 		let filtered = rows;

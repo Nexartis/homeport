@@ -890,14 +890,19 @@ export const agentAddrs = sqliteTable(
 		version: text('version').default('1.0.0'), // semver
 		deprecatedAt: integer('deprecated_at'), // Unix timestamp when deprecated
 		sunsetAt: integer('sunset_at'), // Unix timestamp for final removal
-		registeredAt: integer('registered_at').default(sql`(unixepoch())`)
+		registeredAt: integer('registered_at').default(sql`(unixepoch())`),
+		visibility: text('visibility').notNull().default('public'),
+		capabilityManifest: text('capability_manifest'),
+		mcpMetadata: text('mcp_metadata'),
+		pricing: text('pricing')
 	},
 	(table) => ({
 		sourceIdx: index('idx_agent_addrs_source').on(table.source),
 		quiltIdx: index('idx_agent_addrs_quilt').on(table.quiltType),
 		expiresIdx: index('idx_agent_addrs_expires').on(table.expiresAt),
 		signerIdx: index('idx_agent_addrs_signer').on(table.signerId),
-		statusIdx: index('idx_agent_addrs_status').on(table.status)
+		statusIdx: index('idx_agent_addrs_status').on(table.status),
+		visibilityIdx: index('idx_agent_addrs_visibility').on(table.visibility)
 	})
 );
 
