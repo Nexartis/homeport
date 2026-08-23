@@ -60,6 +60,7 @@ const TABLES = [
     last_gossip_at INTEGER, vector_clock TEXT DEFAULT '{}',
     failure_count INTEGER DEFAULT 0, capabilities TEXT DEFAULT '[]',
     quilt_types TEXT DEFAULT '["native"]',
+    public_key_spki TEXT, key_updated_at INTEGER,
     created_at INTEGER DEFAULT (unixepoch()), updated_at INTEGER DEFAULT (unixepoch()))`,
 	`CREATE TABLE IF NOT EXISTS gossip_log (
     id TEXT PRIMARY KEY, peer_id TEXT NOT NULL,
@@ -92,6 +93,14 @@ const TABLES = [
 
 beforeAll(async () => {
 	await env.DB.batch(TABLES.map((sql) => env.DB.prepare(sql)));
+	for (const sql of [
+		'ALTER TABLE federation_peers ADD COLUMN public_key_spki TEXT',
+		'ALTER TABLE federation_peers ADD COLUMN key_updated_at INTEGER'
+	]) {
+		await env.DB.prepare(sql)
+			.run()
+			.catch(() => undefined);
+	}
 
 	// Seed one federated agent in agent_addrs (H3 — CRDT writes to agent_addrs)
 	await env.DB.prepare(

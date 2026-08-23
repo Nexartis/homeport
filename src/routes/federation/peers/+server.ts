@@ -83,12 +83,13 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const peerService = new PeerService(db);
 
 	const body = (await request.json()) as Record<string, unknown>;
-	const { peer_id, peer_url, node_id, capabilities, quilt_types } = body as {
+	const { peer_id, peer_url, node_id, capabilities, quilt_types, public_key_spki } = body as {
 		peer_id?: string;
 		peer_url?: string;
 		node_id?: string;
 		capabilities?: string[];
 		quilt_types?: string[];
+		public_key_spki?: string;
 	};
 
 	if (!peer_id || !peer_url || !node_id) {
@@ -114,7 +115,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			peer_url,
 			node_id,
 			capabilities: capabilities ?? [],
-			quilt_types: quilt_types ?? []
+			quilt_types: quilt_types ?? [],
+			public_key_spki: public_key_spki ?? null
 		});
 		log.info('POST', `Registered peer ${peer_id} (${node_id}) at ${peer_url}`);
 		return json({ ok: true, peer });

@@ -32,9 +32,11 @@ export class PeerService {
 		peer: Pick<FederationPeer, 'peer_id' | 'peer_url' | 'node_id'> & {
 			capabilities?: string[];
 			quilt_types?: string[];
+			public_key_spki?: string | null;
 		}
 	): Promise<FederationPeer> {
 		const now = Math.floor(Date.now() / 1000);
+		const publicKeySpki = peer.public_key_spki ?? null;
 		const record = {
 			peerId: peer.peer_id,
 			peerUrl: peer.peer_url,
@@ -46,6 +48,8 @@ export class PeerService {
 			failureCount: 0,
 			capabilities: JSON.stringify(peer.capabilities ?? []),
 			quiltTypes: JSON.stringify(peer.quilt_types ?? ['native']),
+			publicKeySpki,
+			keyUpdatedAt: publicKeySpki ? now : null,
 			createdAt: now,
 			updatedAt: now
 		};
@@ -62,6 +66,8 @@ export class PeerService {
 					failureCount: 0,
 					capabilities: record.capabilities,
 					quiltTypes: record.quiltTypes,
+					publicKeySpki: record.publicKeySpki,
+					keyUpdatedAt: record.keyUpdatedAt,
 					updatedAt: now
 				}
 			});
@@ -77,6 +83,8 @@ export class PeerService {
 			failure_count: 0,
 			capabilities: peer.capabilities ?? [],
 			quilt_types: peer.quilt_types ?? ['native'],
+			public_key_spki: publicKeySpki,
+			key_updated_at: publicKeySpki ? now : null,
 			created_at: now
 		};
 	}
@@ -218,6 +226,8 @@ export class PeerService {
 		failureCount: number | null;
 		capabilities: string | null;
 		quiltTypes: string | null;
+		publicKeySpki?: string | null;
+		keyUpdatedAt?: number | null;
 		createdAt: number | null;
 	}): FederationPeer {
 		return {
@@ -231,6 +241,8 @@ export class PeerService {
 			failure_count: row.failureCount ?? 0,
 			capabilities: row.capabilities ? JSON.parse(row.capabilities) : [],
 			quilt_types: row.quiltTypes ? JSON.parse(row.quiltTypes) : ['native'],
+			public_key_spki: row.publicKeySpki ?? null,
+			key_updated_at: row.keyUpdatedAt ?? null,
 			created_at: row.createdAt ?? 0
 		};
 	}

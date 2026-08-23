@@ -47,6 +47,6 @@ flowchart LR
 
 ## Boundaries and risks
 
-- The current two-node peer model uses a shared federation admin key; per-peer public-key auth remains future hardening.
+- Inbound gossip authenticates with the enrolled peer Ed25519 SPKI (`federation_peers.public_key_spki`). Unknown node → 401, unenrolled key → 403, bad/missing signature → 401. Outbound gossip is signed and does not send the shared admin bearer.
+- The shared `NANDA_FEDERATION_ADMIN_KEY` remains enrollment-only (`POST /federation/peers`, `/federation/join`, admin surfaces).
 - Federated AgentAddr merge/resigning and single-source AgentAddr migration are not complete current-state behavior.
-- Federation currently relies on shared admin-key auth for the simple peer model; per-peer signed auth is open work.

@@ -19,6 +19,7 @@ import type {
 } from '$lib/types/federation-v2';
 import type { CRDTMergeEngine } from './crdt';
 import type { PeerService } from './peers';
+import { verifySignedPeerRequest } from './peer-auth';
 import { createLogger } from '$lib/utils/logger';
 
 const log = createLogger(undefined, 'gossip');
@@ -110,6 +111,12 @@ export class GossipService {
 	 * Verifies structure, merges deltas via CRDT, updates peer state.
 	 */
 	async handleInbound(message: GossipMessage, peerId: string): Promise<MergeResult> {
+		await verifySignedPeerRequest({
+			message,
+			peers: this.peers,
+			verifySignature: (msg, key) => this.verifySignature(msg, key)
+		});
+
 		// Rate-limit inbound gossip per peer
 		const peer = await this.peers.getPeer(peerId);
 		if (peer && peer.last_gossip_at) {
@@ -214,14 +221,10 @@ export class GossipService {
 			return { accepted: 0, rejected: 0, conflicts: 0, tombstones: 0, acceptedIndices: [] };
 		}
 
-		// Send gossip to peer (with federation admin key for authentication)
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json',
 			'User-Agent': 'KYM-NANDA-Gossip/2.0'
 		};
-		if (this.federationAdminKey) {
-			headers['Authorization'] = `Bearer ${this.federationAdminKey}`;
-		}
 
 		const resp = await fetch(`${peer.peer_url}/federation/gossip`, {
 			method: 'POST',

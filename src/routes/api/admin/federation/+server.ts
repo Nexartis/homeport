@@ -108,6 +108,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		node_id?: string;
 		capabilities?: string[];
 		quilt_types?: string[];
+		public_key_spki?: string;
 		agent_id?: string;
 		policy?: ZTAAPolicy;
 		prefix?: string;
@@ -144,7 +145,8 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				peer_url: body.peer_url,
 				node_id: body.node_id,
 				capabilities: body.capabilities,
-				quilt_types: body.quilt_types
+				quilt_types: body.quilt_types,
+				public_key_spki: body.public_key_spki ?? null
 			});
 			return json({ ok: true, peer });
 		}
@@ -191,7 +193,18 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 				env.NANDA_FEDERATION_ADMIN_KEY,
 				kvFallback(env, SECRET_KEYS.FEDERATION_ADMIN_KEY)
 			);
-			const gossip = new GossipService(db, crdt, peers, nodeId, fedKey ?? undefined);
+			const ed25519Key = await resolveSecret(
+				env.KYM_NANDA_ED25519_PRIVATE_KEY_v1,
+				kvFallback(env, SECRET_KEYS.ED25519_PRIVATE_KEY_V1)
+			);
+			const gossip = new GossipService(
+				db,
+				crdt,
+				peers,
+				nodeId,
+				fedKey ?? undefined,
+				ed25519Key ?? undefined
+			);
 			const results = await gossip.pushToAllPeers();
 			const summary: Record<string, unknown> = {};
 			results.forEach((v, k) => {
