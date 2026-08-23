@@ -2,7 +2,7 @@
  * POST /federation/gossip — Gossip inbound endpoint
  *
  * Receives gossip messages from federation peers.
- * Authenticated via NANDA_FEDERATION_ADMIN_KEY.
+ * Authenticated via enrolled peer Ed25519 signature (no shared bearer).
  * Returns CRDT merge result.
  *
  * @swagger
@@ -13,7 +13,7 @@
  *     tags:
  *       - Federation
  *     security:
- *       - FederationAdmin: []
+ *       - PeerEd25519: []
  *     requestBody:
  *       required: true
  *       content:
@@ -40,10 +40,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createDbClient } from '$lib/db/client';
-import { requireFederationAdmin } from '$lib/middleware/auth-guards';
 import { CRDTMergeEngine } from '$lib/services/federation/crdt';
 import { GossipService } from '$lib/services/federation/gossip';
 import { PeerService } from '$lib/services/federation/peers';
+import { PeerAuthError } from '$lib/services/federation/peer-auth';
 import type { GossipMessage } from '$lib/types/federation-v2';
 import { importSigningKey } from '$lib/crypto/sign-agent';
 import { createLogger } from '$lib/utils/logger';
@@ -51,10 +51,6 @@ import { createLogger } from '$lib/utils/logger';
 const log = createLogger(undefined, 'gossip-route');
 
 export const POST: RequestHandler = async ({ request, platform }) => {
-	// Auth guard first — safe even if platform is undefined
-	const denied = await requireFederationAdmin(request, platform);
-	if (denied) return denied;
-
 	if (!platform?.env?.DB) {
 		return json({ error: 'Database binding unavailable' }, { status: 503 });
 	}
@@ -89,7 +85,15 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	// Use node_id as peer_id for inbound gossip
 	const peerId = message.node_id;
 
-	const result = await gossip.handleInbound(message, peerId);
+	let result;
+	try {
+		result = await gossip.handleInbound(message, peerId);
+	} catch (err) {
+		if (err instanceof PeerAuthError) {
+			return json({ error: err.message }, { status: err.status });
+		}
+		throw err;
+	}
 
 	log.info(
 		'POST',

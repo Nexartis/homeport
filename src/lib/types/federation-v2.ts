@@ -48,6 +48,8 @@ export interface FederationPeer {
 	failure_count: number;
 	capabilities: string[];
 	quilt_types: string[];
+	public_key_spki?: string | null;
+	key_updated_at?: number | null;
 	created_at: number;
 }
 

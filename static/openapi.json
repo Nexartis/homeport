@@ -595,7 +595,7 @@
         ],
         "security": [
           {
-            "FederationAdmin": []
+            "PeerEd25519": []
           }
         ],
         "requestBody": {

@@ -805,6 +805,8 @@ export const federationPeers = sqliteTable(
 		failureCount: integer('failure_count').default(0),
 		capabilities: text('capabilities').default('[]'), // JSON array
 		quiltTypes: text('quilt_types').default('["native"]'), // JSON array
+		publicKeySpki: text('public_key_spki'),
+		keyUpdatedAt: integer('key_updated_at'),
 		createdAt: integer('created_at').default(sql`(unixepoch())`),
 		updatedAt: integer('updated_at').default(sql`(unixepoch())`)
 	},

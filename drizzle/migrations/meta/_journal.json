@@ -57,6 +57,13 @@
       "when": 1786233600000,
       "tag": "0007_agent_visibility_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787443200000,
+      "tag": "0008_federation_peer_public_keys",
+      "breakpoints": true
     }
   ]
 }

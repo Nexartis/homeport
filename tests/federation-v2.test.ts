@@ -16,7 +16,22 @@ import { QuiltService } from '$lib/services/federation/quilt';
 import { PeerService } from '$lib/services/federation/peers';
 import { GossipService } from '$lib/services/federation/gossip';
 import { importSigningKey } from '$lib/crypto/sign-agent';
-import type { AgentAddrDelta, VectorClock } from '$lib/types/federation-v2';
+import type { AgentAddrDelta, GossipMessage, VectorClock } from '$lib/types/federation-v2';
+
+async function signNodeGossip(
+	payload: Omit<GossipMessage, 'signature_hex'>
+): Promise<GossipMessage> {
+	const der = Uint8Array.from(atob(env.KYM_NANDA_ED25519_PRIVATE_KEY_v1 as string), (c) =>
+		c.charCodeAt(0)
+	);
+	const key = await crypto.subtle.importKey('pkcs8', der, { name: 'Ed25519' }, false, ['sign']);
+	const data = new TextEncoder().encode(JSON.stringify(payload));
+	const sig = await crypto.subtle.sign('Ed25519', key, data);
+	const signature_hex = Array.from(new Uint8Array(sig))
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+	return { ...payload, signature_hex };
+}
 
 /** Cached Ed25519 signing key for tests */
 let _testSigningKey: CryptoKey;
@@ -81,6 +96,7 @@ const TABLES = [
     last_gossip_at INTEGER, vector_clock TEXT DEFAULT '{}',
     failure_count INTEGER DEFAULT 0, capabilities TEXT DEFAULT '[]',
     quilt_types TEXT DEFAULT '["native"]',
+    public_key_spki TEXT, key_updated_at INTEGER,
     created_at INTEGER DEFAULT (unixepoch()), updated_at INTEGER DEFAULT (unixepoch()))`,
 	`CREATE TABLE IF NOT EXISTS gossip_log (
     id TEXT PRIMARY KEY, peer_id TEXT NOT NULL,
@@ -113,6 +129,14 @@ const TABLES = [
 
 beforeAll(async () => {
 	await env.DB.batch(TABLES.map((sql) => env.DB.prepare(sql)));
+	for (const sql of [
+		'ALTER TABLE federation_peers ADD COLUMN public_key_spki TEXT',
+		'ALTER TABLE federation_peers ADD COLUMN key_updated_at INTEGER'
+	]) {
+		await env.DB.prepare(sql)
+			.run()
+			.catch(() => undefined);
+	}
 });
 
 // ─── CRDT Merge Engine ──────────────────────────────────────────
@@ -782,11 +806,17 @@ describe('PeerService', () => {
 // ─── Gossip Route Integration ───────────────────────────────────
 
 describe('POST /federation/gossip', () => {
-	it('returns 401 without auth header', async () => {
+	it('returns 401 for unknown peer without enrolled signature', async () => {
 		const res = await SELF.fetch('https://fake.host/federation/gossip', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '10.0.5.1' },
-			body: JSON.stringify({})
+			body: JSON.stringify({
+				node_id: 'unknown-gossip-peer',
+				timestamp: Math.floor(Date.now() / 1000),
+				agent_addr_deltas: [],
+				vector_clock: {},
+				signature_hex: ''
+			})
 		});
 		expect(res.status).toBe(401);
 	});
@@ -804,12 +834,11 @@ describe('POST /federation/gossip', () => {
 		expect(res.status).toBe(400);
 	});
 
-	it('accepts valid gossip message', async () => {
+	it('rejects empty-signature gossip', async () => {
 		const res = await SELF.fetch('https://fake.host/federation/gossip', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: `Bearer ${env.NANDA_FEDERATION_ADMIN_KEY}`,
 				'CF-Connecting-IP': '10.0.5.3'
 			},
 			body: JSON.stringify({
@@ -830,9 +859,7 @@ describe('POST /federation/gossip', () => {
 				signature_hex: ''
 			})
 		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body).toHaveProperty('accepted');
+		expect(res.status).toBe(401);
 	});
 });
 
@@ -865,12 +892,19 @@ describe('GossipService', () => {
 
 		// Register a peer with a recent last_gossip_at
 		await env.DB.prepare(
-			`INSERT OR REPLACE INTO federation_peers (peer_id, peer_url, node_id, status, last_gossip_at) VALUES (?, ?, ?, ?, ?)`
+			`INSERT OR REPLACE INTO federation_peers (peer_id, peer_url, node_id, status, last_gossip_at, public_key_spki) VALUES (?, ?, ?, ?, ?, ?)`
 		)
-			.bind('rate-limit-peer', 'https://rl.example.com', 'rate-limit-peer', 'active', now - 10)
+			.bind(
+				'rate-limit-peer',
+				'https://rl.example.com',
+				'rate-limit-peer',
+				'active',
+				now - 10,
+				env.NANDA_ED25519_PUBLIC_KEY_v1
+			)
 			.run();
 
-		const message = {
+		const message = await signNodeGossip({
 			node_id: 'rate-limit-peer',
 			timestamp: now,
 			agent_addr_deltas: [
@@ -881,9 +915,8 @@ describe('GossipService', () => {
 					source_node: 'rate-limit-peer'
 				}
 			],
-			vector_clock: { 'rate-limit-peer': now },
-			signature_hex: ''
-		};
+			vector_clock: { 'rate-limit-peer': now }
+		});
 
 		const result = await gossip.handleInbound(message, 'rate-limit-peer');
 		// Should be rate-limited — all deltas rejected
@@ -900,12 +933,19 @@ describe('GossipService', () => {
 
 		// Register a peer with gossip 60s ago (well past the 30s limit)
 		await env.DB.prepare(
-			`INSERT OR REPLACE INTO federation_peers (peer_id, peer_url, node_id, status, last_gossip_at) VALUES (?, ?, ?, ?, ?)`
+			`INSERT OR REPLACE INTO federation_peers (peer_id, peer_url, node_id, status, last_gossip_at, public_key_spki) VALUES (?, ?, ?, ?, ?, ?)`
 		)
-			.bind('rl-allowed-peer', 'https://rl2.example.com', 'rl-allowed-peer', 'active', now - 60)
+			.bind(
+				'rl-allowed-peer',
+				'https://rl2.example.com',
+				'rl-allowed-peer',
+				'active',
+				now - 60,
+				env.NANDA_ED25519_PUBLIC_KEY_v1
+			)
 			.run();
 
-		const message = {
+		const message = await signNodeGossip({
 			node_id: 'rl-allowed-peer',
 			timestamp: now,
 			agent_addr_deltas: [
@@ -916,9 +956,8 @@ describe('GossipService', () => {
 					source_node: 'rl-allowed-peer'
 				}
 			],
-			vector_clock: { 'rl-allowed-peer': now },
-			signature_hex: ''
-		};
+			vector_clock: { 'rl-allowed-peer': now }
+		});
 
 		const result = await gossip.handleInbound(message, 'rl-allowed-peer');
 		expect(result.accepted).toBe(1);
@@ -933,12 +972,19 @@ describe('GossipService', () => {
 
 		// Register a peer with last_gossip_at = 0 (never gossipped)
 		await env.DB.prepare(
-			`INSERT OR REPLACE INTO federation_peers (peer_id, peer_url, node_id, status, last_gossip_at) VALUES (?, ?, ?, ?, ?)`
+			`INSERT OR REPLACE INTO federation_peers (peer_id, peer_url, node_id, status, last_gossip_at, public_key_spki) VALUES (?, ?, ?, ?, ?, ?)`
 		)
-			.bind('rl-first-peer', 'https://rl3.example.com', 'rl-first-peer', 'active', 0)
+			.bind(
+				'rl-first-peer',
+				'https://rl3.example.com',
+				'rl-first-peer',
+				'active',
+				0,
+				env.NANDA_ED25519_PUBLIC_KEY_v1
+			)
 			.run();
 
-		const message = {
+		const message = await signNodeGossip({
 			node_id: 'rl-first-peer',
 			timestamp: now,
 			agent_addr_deltas: [
@@ -949,9 +995,8 @@ describe('GossipService', () => {
 					source_node: 'rl-first-peer'
 				}
 			],
-			vector_clock: { 'rl-first-peer': now },
-			signature_hex: ''
-		};
+			vector_clock: { 'rl-first-peer': now }
+		});
 
 		const result = await gossip.handleInbound(message, 'rl-first-peer');
 		expect(result.accepted).toBe(1);

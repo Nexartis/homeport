@@ -49,7 +49,7 @@ import { PeerService } from '$lib/services/federation/peers';
 import { requireFederationAdmin } from '$lib/middleware/auth-guards';
 import { validatePeerUrl } from '$lib/services/federation';
 import { resolveSecret } from '$lib/utils/resolve-secret';
-import { kvFallback, SECRET_KEYS } from '$lib/utils/node-secrets';
+import { kvFallback, resolvePublicKey, SECRET_KEYS } from '$lib/utils/node-secrets';
 import { createLogger } from '$lib/utils/logger';
 
 const log = createLogger(undefined, 'federation-join');
@@ -63,11 +63,12 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const peerService = new PeerService(db);
 
 	const body = (await request.json()) as Record<string, unknown>;
-	const { peer_id, peer_url, node_id, capabilities } = body as {
+	const { peer_id, peer_url, node_id, capabilities, public_key_spki } = body as {
 		peer_id?: string;
 		peer_url?: string;
 		node_id?: string;
 		capabilities?: string[];
+		public_key_spki?: string;
 	};
 
 	if (!peer_id || !peer_url || !node_id) {
@@ -81,7 +82,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			peer_url,
 			node_id,
 			capabilities: capabilities ?? [],
-			quilt_types: []
+			quilt_types: [],
+			public_key_spki: public_key_spki ?? null
 		});
 		log.info('POST', `Registered incoming peer ${peer_id} (${node_id})`);
 	} catch (err) {
@@ -118,6 +120,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		);
 	}
 
+	const myPublicKey = await resolvePublicKey(env.NANDA_ED25519_PUBLIC_KEY_v1, env, 'v1');
+
 	try {
 		const reciprocal = await fetch(`${peer_url}/federation/peers`, {
 			method: 'POST',
@@ -129,7 +133,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 				peer_id: myNodeId,
 				peer_url: myRegistryUrl,
 				node_id: myNodeId,
-				capabilities: ['registry', 'gossip']
+				capabilities: ['registry', 'gossip'],
+				public_key_spki: myPublicKey ?? null
 			}),
 			signal: AbortSignal.timeout(10_000)
 		});

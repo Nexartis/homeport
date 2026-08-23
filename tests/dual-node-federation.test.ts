@@ -42,6 +42,7 @@ const TABLES = [
     last_gossip_at INTEGER, vector_clock TEXT DEFAULT '{}',
     failure_count INTEGER DEFAULT 0, capabilities TEXT DEFAULT '[]',
     quilt_types TEXT DEFAULT '["native"]',
+    public_key_spki TEXT, key_updated_at INTEGER,
     created_at INTEGER DEFAULT (unixepoch()), updated_at INTEGER DEFAULT (unixepoch()))`,
 	`CREATE TABLE IF NOT EXISTS gossip_log (
     id TEXT PRIMARY KEY, peer_id TEXT NOT NULL,
@@ -52,6 +53,14 @@ const TABLES = [
 
 beforeAll(async () => {
 	await env.DB.batch(TABLES.map((sql) => env.DB.prepare(sql)));
+	for (const sql of [
+		'ALTER TABLE federation_peers ADD COLUMN public_key_spki TEXT',
+		'ALTER TABLE federation_peers ADD COLUMN key_updated_at INTEGER'
+	]) {
+		await env.DB.prepare(sql)
+			.run()
+			.catch(() => undefined);
+	}
 });
 
 // ── helpers ────────────────────────────────────────────────────────
@@ -172,12 +181,15 @@ describe('Dual-node federation — two independently configured nodes', () => {
 		// Stub globalThis.fetch to capture the gossip push (certifier.test.ts pattern)
 		let capturedUrl = '';
 		let capturedBody: GossipMessage | null = null;
+		let capturedAuth: string | null = null;
 		const originalFetch = globalThis.fetch;
 		globalThis.fetch = vi
 			.fn()
 			.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
 				capturedUrl = String(input);
 				capturedBody = JSON.parse(String(init?.body)) as GossipMessage;
+				const hdrs = new Headers(init?.headers);
+				capturedAuth = hdrs.get('Authorization');
 				return new Response(
 					JSON.stringify({
 						accepted: 2,
@@ -199,6 +211,7 @@ describe('Dual-node federation — two independently configured nodes', () => {
 		expect(capturedUrl).toBe(`${NODE_B_PEER_URL}/federation/gossip`);
 		expect(capturedBody).not.toBeNull();
 		expect(capturedBody!.node_id).toBe(nodeAId);
+		expect(capturedAuth).toBeNull();
 
 		// Payload carries node-a's signature, verifiable with node-a's public key
 		expect(capturedBody!.signature_hex).not.toBe('');
@@ -224,7 +237,12 @@ describe('Dual-node federation — two independently configured nodes', () => {
 
 		// Register node-b as a federation peer (handleInbound keys peers by node_id)
 		const peers = new PeerService(db);
-		await peers.registerPeer({ peer_id: NODE_B_ID, peer_url: NODE_B_PEER_URL, node_id: NODE_B_ID });
+		await peers.registerPeer({
+			peer_id: NODE_B_ID,
+			peer_url: NODE_B_PEER_URL,
+			node_id: NODE_B_ID,
+			public_key_spki: nodeB.publicKeyBase64
+		});
 		// Outbound test pushed recently — clear the inbound rate-limit window
 		await env.DB.prepare(`UPDATE federation_peers SET last_gossip_at = 0 WHERE peer_id = ?`)
 			.bind(NODE_B_ID)
@@ -277,7 +295,6 @@ describe('Dual-node federation — two independently configured nodes', () => {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				Authorization: `Bearer ${env.NANDA_FEDERATION_ADMIN_KEY}`,
 				'CF-Connecting-IP': '10.0.9.1'
 			},
 			body: JSON.stringify(message)
