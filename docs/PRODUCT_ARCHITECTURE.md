@@ -146,6 +146,13 @@ Freshness window on `proof.boundAt` and `proof.issuedAt`
 (milliseconds) is 5 minutes with 30 s clock-skew allowance.
 `proof.signature` is Ed25519-verified against `proof.principalPk`.
 
+The `/a2a` handler accepts camelCase or snake_case spellings for the
+proof fields (`principal_pk`, `device_did`, `request_id`, `bound_at`,
+`issued_at`, `proof_signature`) and reconstructs the canonical
+envelope before verification. The wire `granted_by_proof_hash` is
+required; a payload carrying neither `signature` nor
+`proof_signature`, or lacking the hash, fails closed.
+
 ### Ancestor cascade
 
 `checkDelegation` walks `parent_delegation_id` upward. If any
