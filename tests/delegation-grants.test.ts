@@ -287,6 +287,32 @@ describe('verifyPuhProof — NND-D3', () => {
 		).resolves.toBeUndefined();
 	});
 
+	it('SEAM-HP-01: camel, snake, and proof_signature reconstruct to the same envelope', async () => {
+		const signed = await signedProof(subject);
+		const camel = reconstructPuhProof({
+			principalPk: signed.principalPk,
+			deviceDid: signed.deviceDid,
+			requestId: signed.requestId,
+			boundAt: signed.boundAt,
+			issuedAt: signed.issuedAt,
+			signature: signed.signature
+		});
+		const snake = reconstructPuhProof({
+			principal_pk: signed.principalPk,
+			device_did: signed.deviceDid,
+			request_id: signed.requestId,
+			bound_at: signed.boundAt,
+			issued_at: signed.issuedAt,
+			proof_signature: signed.signature
+		});
+		expect(camel).toEqual(signed);
+		expect(snake).toEqual(camel);
+		const hash = await computeHash(snake!, subject);
+		await expect(
+			verifyPuhProof({ proof: snake, grantedByProofHash: hash, subject })
+		).resolves.toBeUndefined();
+	});
+
 	it('rejects a malformed signature', async () => {
 		const proof = await signedProof(subject, { signature: 'not-a-signature!!!' });
 		const hash = await computeHash(proof, subject);
