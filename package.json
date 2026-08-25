@@ -22,6 +22,7 @@
 		"lint": "eslint .",
 		"pretest": "vite build && node scripts/inject-cache-shim.js && node scripts/inject-scheduled-handler.js",
 		"test": "vitest run",
+		"test:unit": "vitest run",
 		"test:watch": "vitest",
 		"prepare": "svelte-kit sync",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
