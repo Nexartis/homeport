@@ -251,6 +251,13 @@ describe('verifyPuhProof — NND-D3', () => {
 		).rejects.toMatchObject({ code: 'proof-hash-mismatch' });
 	});
 
+	it('rejects an absent grantedByProofHash before any grant write', async () => {
+		const proof = await signedProof(subject);
+		await expect(
+			verifyPuhProof({ proof, grantedByProofHash: '', subject })
+		).rejects.toMatchObject({ code: 'missing-proof-hash' });
+	});
+
 	it('rejects a missing signature before any grant write', async () => {
 		const proof = await signedProof(subject, { signature: '' });
 		const hash = await computeHash(proof, subject);
@@ -263,6 +270,23 @@ describe('verifyPuhProof — NND-D3', () => {
 		const signed = await signedProof(subject);
 		const { signature: _dropped, ...wire } = signed;
 		const reconstructed = reconstructPuhProof(wire);
+		expect(reconstructed?.signature).toBe('');
+		const hash = await computeHash(reconstructed!, subject);
+		await expect(
+			verifyPuhProof({ proof: reconstructed, grantedByProofHash: hash, subject })
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+	});
+
+	it('rejects when both signature spellings are stripped from the wire', async () => {
+		const signed = await signedProof(subject);
+		const { signature: _dropped, ...noSig } = signed;
+		const reconstructed = reconstructPuhProof({
+			principal_pk: noSig.principalPk,
+			device_did: noSig.deviceDid,
+			request_id: noSig.requestId,
+			bound_at: noSig.boundAt,
+			issued_at: noSig.issuedAt
+		});
 		expect(reconstructed?.signature).toBe('');
 		const hash = await computeHash(reconstructed!, subject);
 		await expect(
@@ -284,6 +308,32 @@ describe('verifyPuhProof — NND-D3', () => {
 		const hash = await computeHash(reconstructed!, subject);
 		await expect(
 			verifyPuhProof({ proof: reconstructed, grantedByProofHash: hash, subject })
+		).resolves.toBeUndefined();
+	});
+
+	it('SEAM-HP-01: camel, snake, and proof_signature reconstruct to the same envelope', async () => {
+		const signed = await signedProof(subject);
+		const camel = reconstructPuhProof({
+			principalPk: signed.principalPk,
+			deviceDid: signed.deviceDid,
+			requestId: signed.requestId,
+			boundAt: signed.boundAt,
+			issuedAt: signed.issuedAt,
+			signature: signed.signature
+		});
+		const snake = reconstructPuhProof({
+			principal_pk: signed.principalPk,
+			device_did: signed.deviceDid,
+			request_id: signed.requestId,
+			bound_at: signed.boundAt,
+			issued_at: signed.issuedAt,
+			proof_signature: signed.signature
+		});
+		expect(camel).toEqual(signed);
+		expect(snake).toEqual(camel);
+		const hash = await computeHash(snake!, subject);
+		await expect(
+			verifyPuhProof({ proof: snake, grantedByProofHash: hash, subject })
 		).resolves.toBeUndefined();
 	});
 
@@ -383,6 +433,28 @@ describe('grantDelegation — NND-D3 integration', () => {
 				}
 			)
 		).rejects.toMatchObject({ code: 'proof-hash-mismatch' });
+	});
+
+	it('does not persist a grant when the proof hash is absent (route default)', async () => {
+		const base = baseInput();
+		const subject = {
+			delegateId: base.delegateId,
+			grantedScope: base.grantedScope,
+			expiresAt: base.expiresAt,
+			parentDelegationId: null,
+			revocable: true
+		};
+		const proof = await signedProof(subject);
+		const before = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM delegation_tasks'
+		).first<{ n: number }>();
+		await expect(
+			grantDelegation(db, auditEnv(), { ...base, grantedByProofHash: '', proof })
+		).rejects.toMatchObject({ code: 'missing-proof-hash' });
+		const after = await env.DB.prepare(
+			'SELECT COUNT(*) AS n FROM delegation_tasks'
+		).first<{ n: number }>();
+		expect(after?.n).toBe(before?.n ?? 0);
 	});
 
 	it('does not persist a grant when the signature is missing', async () => {
