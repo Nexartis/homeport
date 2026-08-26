@@ -100,7 +100,7 @@
 				{
 					"binding": "DB",
 					"database_name": "homeport-db-dev",
-					"database_id": "64ee1cd2-8a47-406e-b6c7-5e5b78fec94e",
+					"database_id": "__PEGASUS_PROVISION__",
 					"migrations_dir": "drizzle/migrations"
 				}
 			],
@@ -113,7 +113,7 @@
 			"kv_namespaces": [
 				{
 					"binding": "NANDA_NODE_CACHE",
-					"id": "4ffd116db7bd4fc8be6f46218639b27b"
+					"id": "__PEGASUS_PROVISION__"
 				}
 			],
 			"triggers": { "crons": ["0 * * * *"] },
