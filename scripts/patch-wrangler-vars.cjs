@@ -99,13 +99,10 @@ function parseArgs(argv) {
 	return args;
 }
 
-// Resolve the canonical Pegasus deployment env block. Fails LOUDLY if it
-// doesn't exist — deploy.js hard-codes `wrangler deploy --env
-// acme-nanda`, so patching any other env (or silently
-// creating a fresh one) would reproduce the exact "silent success, vars
-// missing at deploy time" failure this patcher exists to eliminate.
-// Confirmed: zero of the 392 tenant branches on this template use a
-// non-canonical pegasus env name (full-scan 2026-07-05).
+// Resolve the env block named by --env. Fails LOUDLY if missing — never
+// silently create or fall back. Pegasus tenants historically used
+// `acme-nanda`; this repo also ships `pegasus-horizon-breakthrough`.
+// Callers must pass the env they will deploy (`wrangler deploy --env <name>`).
 function resolvePegasusEnv(wrangler, envName) {
 	if (!wrangler || typeof wrangler !== 'object')
 		throw new Error('wrangler.jsonc root must be an object');
@@ -116,7 +113,7 @@ function resolvePegasusEnv(wrangler, envName) {
 	if (!envConfig || typeof envConfig !== 'object') {
 		const found = Object.keys(wrangler.env).filter((k) => k.startsWith('pegasus-'));
 		const hint = found.length
-			? ` (found other pegasus-* envs: ${found.join(', ')} — this tenant needs branch surgery to rename to the canonical env before Pegasus can deploy it)`
+			? ` (found pegasus-* envs: ${found.join(', ')} — pass --env matching the wrangler deploy --env you will run)`
 			: '';
 		throw new Error(
 			`wrangler.jsonc missing required env.${envName} block${hint}. deploy.js always runs \`wrangler deploy --env ${envName}\`; patching a different env would leave the deploy env unpatched.`
