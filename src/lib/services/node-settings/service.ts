@@ -135,7 +135,10 @@ export async function isLoginAllowed(
 		return { ok: false, reason: 'not_invited' };
 	}
 
-	// 4. Solo mode — owner only
+	// 4. Solo mode — owner only. An empty owner is not solo; it is unset.
+	if (!ownerEmail) {
+		return { ok: false, reason: 'no_owner' };
+	}
 	return { ok: false, reason: 'solo_mode' };
 }
 
