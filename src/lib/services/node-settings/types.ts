@@ -12,6 +12,7 @@ export interface LoginAllowedResult {
 	reason?:
 		| 'no_settings'
 		| 'solo_mode'
+		| 'no_owner'
 		| 'not_invited'
 		| 'revoked'
 		| 'expired'
