@@ -687,17 +687,22 @@ describe('grantDelegation — chain attacks (AGENTIC-143 / nandatown#167)', () =
 	it('regression: the MAX_CHAIN_DEPTH-th re-delegation mints; one deeper refuses chain-too-deep', async () => {
 		// Root (depth 0) plus MAX_CHAIN_DEPTH descendants: the deepest legal
 		// child has ancestorDepth(parent) + 1 === MAX_CHAIN_DEPTH ancestors.
+		// One pinned expiresAt for the whole chain: recomputing now+3600 per
+		// grant makes a child minted a second after its parent widen the TTL
+		// (CI flake: ttl-widens-parent on a 33-grant chain).
+		const expiresAt = Math.floor(Date.now() / 1000) + 3600;
 		let parentId: string | null = null;
 		for (let i = 0; i <= MAX_CHAIN_DEPTH; i++) {
 			const result = await issueGrant({
 				delegateId: `agent-chain-${i}`,
+				expiresAt,
 				parentDelegationId: parentId
 			});
 			expect(result.delegationId).toMatch(/^del-/);
 			parentId = result.delegationId;
 		}
 		await expect(
-			issueGrant({ delegateId: 'agent-chain-too-deep', parentDelegationId: parentId })
+			issueGrant({ delegateId: 'agent-chain-too-deep', expiresAt, parentDelegationId: parentId })
 		).rejects.toMatchObject({ code: 'chain-too-deep' });
 	}, 60_000);
 });
