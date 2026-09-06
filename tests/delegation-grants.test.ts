@@ -12,10 +12,12 @@ import { env } from 'cloudflare:test';
 import { createDbClient } from '../src/lib/db/client';
 import {
 	grantDelegation,
+	revokeDelegation,
 	verifyPuhProof,
 	reconstructPuhProof,
 	DelegationGrantError,
 	PUH_FRESHNESS_MS,
+	MAX_CHAIN_DEPTH,
 	type PuhProof
 } from '../src/lib/server/delegation-grants';
 
@@ -529,4 +531,173 @@ describe('grantDelegation — NND-D3 integration', () => {
 		expect(grantsAfter?.n).toBe(grantsBefore?.n ?? 0);
 		expect(auditsAfter?.n).toBe(auditsBefore?.n ?? 0);
 	});
+});
+
+// ─── AGENTIC-143 — mint-depth bound + backfilled chain-attack tests ────
+//
+// Ported back from the `delegated_admission` production port
+// (projnanda/nandatown PR #167, CLOSED-unmerged). Its VERIFICATION.md
+// divergence 7 disclosed that production bounded the revocation cascade
+// and the check-time ancestor walk (32 hops each) but NOT mint depth, so
+// a grant more than 2x the bound below a revoked ancestor evaded both
+// walks and stayed valid (fail-open). `MAX_CHAIN_DEPTH` now refuses the
+// mint (`chain-too-deep`). The six attack tests backfill regression
+// coverage for the guards the port exercised: signature tampering,
+// boundAt/issuedAt ordering, scope-widens-parent, ttl-widens-parent,
+// revocable-flip, and parent-revoked-at-grant.
+
+describe('grantDelegation — chain attacks (AGENTIC-143 / nandatown#167)', () => {
+	async function issueGrant(opts: {
+		delegateId: string;
+		grantedScope?: string[];
+		expiresAt?: number;
+		parentDelegationId?: string | null;
+		revocable?: boolean;
+	}) {
+		const subject = {
+			delegateId: opts.delegateId,
+			grantedScope: opts.grantedScope ?? ['tool.echo'],
+			expiresAt: opts.expiresAt ?? Math.floor(Date.now() / 1000) + 3600,
+			parentDelegationId: opts.parentDelegationId ?? null,
+			revocable: opts.revocable !== false
+		};
+		const proof = await signedProof(subject);
+		const hash = await computeHash(proof, subject);
+		return grantDelegation(db, auditEnv(), {
+			delegatorId: 'agent-owner-1',
+			delegateId: subject.delegateId,
+			action: 'delegated',
+			grantedScope: subject.grantedScope,
+			expiresAt: subject.expiresAt,
+			revocable: subject.revocable,
+			parentDelegationId: subject.parentDelegationId,
+			grantedByProofHash: hash,
+			proof
+		});
+	}
+
+	it('attack: rejects a tampered signature (single byte-flip) before any grant write', async () => {
+		const subject = {
+			delegateId: 'agent-tamper-1',
+			grantedScope: ['tool.echo'],
+			expiresAt: Math.floor(Date.now() / 1000) + 3600,
+			parentDelegationId: null,
+			revocable: true
+		};
+		const proof = await signedProof(subject);
+		// Flip one byte of the hex signature; the canonical envelope does not
+		// include the signature, so the proof hash stays valid and the
+		// signature check is the only guard that can catch this.
+		const byte0 = (parseInt(proof.signature.slice(0, 2), 16) ^ 0x01)
+			.toString(16)
+			.padStart(2, '0');
+		const tampered = { ...proof, signature: byte0 + proof.signature.slice(2) };
+		const hash = await computeHash(tampered, subject);
+		const before = await env.DB.prepare('SELECT COUNT(*) AS n FROM delegation_tasks').first<{ n: number }>();
+		await expect(
+			grantDelegation(db, auditEnv(), {
+				delegatorId: 'agent-owner-1',
+				delegateId: subject.delegateId,
+				action: 'delegated',
+				grantedScope: subject.grantedScope,
+				expiresAt: subject.expiresAt,
+				revocable: true,
+				grantedByProofHash: hash,
+				proof: tampered
+			})
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+		const after = await env.DB.prepare('SELECT COUNT(*) AS n FROM delegation_tasks').first<{ n: number }>();
+		expect(after?.n).toBe(before?.n ?? 0);
+	});
+
+	it('attack: rejects issuedAt preceding boundAt beyond clock skew', async () => {
+		const subject = {
+			delegateId: 'agent-order-1',
+			grantedScope: ['tool.echo'],
+			expiresAt: Math.floor(Date.now() / 1000) + 3600,
+			parentDelegationId: null,
+			revocable: true
+		};
+		const now = Date.now();
+		// Both timestamps sit inside the freshness window; only the
+		// boundAt/issuedAt ordering guard can catch this envelope.
+		const proof = await signedProof(subject, {
+			boundAt: now - 1_000,
+			issuedAt: now - 32_000
+		});
+		const hash = await computeHash(proof, subject);
+		await expect(
+			verifyPuhProof({ proof, grantedByProofHash: hash, subject })
+		).rejects.toMatchObject({ code: 'invalid-proof' });
+	});
+
+	it('attack: child scope cannot widen past the parent', async () => {
+		const parent = await issueGrant({ delegateId: 'agent-parent-scope' });
+		await expect(
+			issueGrant({
+				delegateId: 'agent-child-scope',
+				grantedScope: ['tool.echo', 'tool.exfiltrate'],
+				expiresAt: parent.expiresAt,
+				parentDelegationId: parent.delegationId
+			})
+		).rejects.toMatchObject({ code: 'scope-widens-parent' });
+	});
+
+	it('attack: child TTL cannot outlive the parent', async () => {
+		const parent = await issueGrant({
+			delegateId: 'agent-parent-ttl',
+			expiresAt: Math.floor(Date.now() / 1000) + 100
+		});
+		await expect(
+			issueGrant({
+				delegateId: 'agent-child-ttl-2',
+				expiresAt: parent.expiresAt + 1000,
+				parentDelegationId: parent.delegationId
+			})
+		).rejects.toMatchObject({ code: 'ttl-widens-parent' });
+	});
+
+	it('attack: revocable parent cannot yield an irrevocable child', async () => {
+		const parent = await issueGrant({ delegateId: 'agent-parent-flip', revocable: true });
+		await expect(
+			issueGrant({
+				delegateId: 'agent-child-flip',
+				expiresAt: parent.expiresAt,
+				parentDelegationId: parent.delegationId,
+				revocable: false
+			})
+		).rejects.toMatchObject({ code: 'revocable-flip-forbidden' });
+	});
+
+	it('attack: a revoked parent refuses new children at grant time', async () => {
+		const parent = await issueGrant({ delegateId: 'agent-parent-revoked' });
+		await revokeDelegation(db, auditEnv(), {
+			delegationId: parent.delegationId,
+			reason: 'compromised'
+		});
+		await expect(
+			issueGrant({
+				delegateId: 'agent-child-of-revoked',
+				expiresAt: parent.expiresAt,
+				parentDelegationId: parent.delegationId
+			})
+		).rejects.toMatchObject({ code: 'parent-revoked' });
+	});
+
+	it('regression: the MAX_CHAIN_DEPTH-th re-delegation mints; one deeper refuses chain-too-deep', async () => {
+		// Root (depth 0) plus MAX_CHAIN_DEPTH descendants: the deepest legal
+		// child has ancestorDepth(parent) + 1 === MAX_CHAIN_DEPTH ancestors.
+		let parentId: string | null = null;
+		for (let i = 0; i <= MAX_CHAIN_DEPTH; i++) {
+			const result = await issueGrant({
+				delegateId: `agent-chain-${i}`,
+				parentDelegationId: parentId
+			});
+			expect(result.delegationId).toMatch(/^del-/);
+			parentId = result.delegationId;
+		}
+		await expect(
+			issueGrant({ delegateId: 'agent-chain-too-deep', parentDelegationId: parentId })
+		).rejects.toMatchObject({ code: 'chain-too-deep' });
+	}, 60_000);
 });
