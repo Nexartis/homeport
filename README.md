@@ -1,6 +1,6 @@
 <p align="center">
   <img src="static/brand/homeport-cubicube-header.webp"
-       alt="Homeport — open-source, self-hostable NANDA node. Managed hosting at cubicube.com."
+       alt="Homeport — open-source, self-hostable NANDA node. Managed hosting announced at cubicube.com."
        width="100%" />
 </p>
 
@@ -28,8 +28,8 @@ makes them verifiable wherever they go.
   the published npm package.
 - **[homeport-sdk.nexartis.com](https://homeport-sdk.nexartis.com)** —
   API reference and SDK documentation.
-- **[cubicube.com](https://cubicube.com)** — managed Homeport nodes
-  operated by Nexartis.
+- **[cubicube.com](https://cubicube.com)** — managed Homeport hosting
+  announced by Nexartis (not yet publicly live).
 
 ## Built as a Cubicube Core Cubi
 
@@ -42,8 +42,9 @@ drives `pnpm run setup` for self-hosters. Three paths for your work:
 
 1. **Self-host it** — your fork, your Cloudflare account
    ([docs/OPERATIONS.md](docs/OPERATIONS.md)).
-2. **Run it managed** — Cubicube operates Homeport nodes at
-   [cubicube.com](https://cubicube.com) on this exact contract.
+2. **Run it managed (announced)** — Cubicube will operate Homeport
+   nodes at [cubicube.com](https://cubicube.com) on this exact
+   contract; managed hosting is announced but not yet publicly live.
 3. **Distribute your customization** — a manifest-honest fork stays
    deployable by the same engine, so a customization you build can be
    offered to Cubicube's customers. Partner with Cubicube to
@@ -104,9 +105,10 @@ revocation cascades to every descendant grant up to 32 hops.
 - The deterministic Python port of the same verifier is our
   submission to
   [`projnanda/nandatown`](https://github.com/projnanda/nandatown) as
-  the `delegated_admission` trust plugin, listed on the
+  the `delegated_admission` trust plugin, submitted for listing on the
   [Nanda Town skills registry](https://nandatown.projectnanda.org/skills)
-  as **"NANDA Delegated Admission."**
+  as **"NANDA Delegated Admission"** (the public listing is partially
+  corroborated by probe; the submission itself is the verified state).
 - Reference source and adversarial test vectors:
   [`src/lib/server/delegation-grants.ts`](src/lib/server/delegation-grants.ts)
   and
@@ -120,11 +122,12 @@ dedicated Cloudflare edge footprint, node upgrades, secret
 rotation, and a full trust-plane operator console — get it hosted,
 personalized, and developed at **[cubicube.com](https://cubicube.com)**.
 
-A live fleet of Homeport nodes already runs in production, deployed
-one-click via Cubicube. The open-source node is Apache-2.0;
-commercial layers (managed fleet deployment, business-class nodes,
-trust-plane services) are built on top of it, never inside it —
-your self-hosted node stays fully feature-complete.
+Managed fleet deployment via Cubicube is announced but not yet
+publicly live — no public fleet URL exists at this time. The
+open-source node is Apache-2.0; commercial layers (managed fleet
+deployment, business-class nodes, trust-plane services) are built on
+top of it, never inside it — your self-hosted node stays fully
+feature-complete.
 
 ## Self-host quickstart
 
@@ -221,7 +224,8 @@ Both are **free for reasonable use** to Homeport operators. For
 higher volumes, SLAs, dedicated regions, procurement, or
 enterprise support, get in touch through
 [**cubicube.com**](https://cubicube.com) — that is where managed
-Homeport, business-class nodes, and commercial support live.
+Homeport, business-class nodes, and commercial support are announced
+to live.
 
 ## Contributing
 
