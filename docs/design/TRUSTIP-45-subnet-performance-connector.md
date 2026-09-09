@@ -14,7 +14,7 @@
 
 Add a **subnet-performance connector** to Homeport: a read-only ingestion service that pulls Bittensor subnet performance history (validator trust scores, emissions rank, stake, registration/identity events) for a configured set of subnets — pilot: **BitMind SN34** — persists it as dated, digest-pinned evidence snapshots in the node's own D1/R2, and feeds it into (a) the certifier's W3C Verifiable Credential issuance as an embedded evidence section and (b) the reputation/trust-score surface as a third, externally-grounded input. The connector also provides the **externally verifiable certificate anchor**: a buyer who does not run a NANDA node can re-derive the evidence digest from public chain data and verify the node's Ed25519 proof offline.
 
-This closes the named capability-3 gap: Homeport's certification machinery exists (Wilson-scored trials, W3C VCs, cascading revocation — `nexartis-product-portfolio/docs/research/data/yanez-bittensor-1.0-round-01/harvest/04-homeport-gap.md:70`, `:47`) but has *"no ingestion of external (e.g. Bittensor subnet) performance data and no anchor independent of the node federation"* (`04-homeport-gap.md:73`); the gap table prescribes exactly *"a subnet-data connector + external verifiability story"*, effort **M** (`04-homeport-gap.md:89`, `:124`).
+This closes the named capability-3 gap: Homeport's certification machinery exists (Wilson-scored trials, W3C VCs, StatusList2021 revocation — per-certificate only; no certificate cascade exists today, §6.1 names the binding-revocation cascade as required work — `nexartis-product-portfolio/docs/research/data/yanez-bittensor-1.0-round-01/harvest/04-homeport-gap.md:70`, `:47`) but has *"no ingestion of external (e.g. Bittensor subnet) performance data and no anchor independent of the node federation"* (`04-homeport-gap.md:73`); the gap table prescribes exactly *"a subnet-data connector + external verifiability story"*, effort **M** (`04-homeport-gap.md:89`, `:124`).
 
 ## 2. Context — why subnet performance history is part of the certification-with-evidence wedge
 
@@ -30,11 +30,11 @@ These are the arch-review A3 constraints recorded in the implementation handover
 
 ### C1 — Pin `spec_version >= 441`
 
-The connector MUST read the chain runtime version (`state_getRuntimeVersion` → `specVersion`) at the start of every sync run and **refuse the run fail-loud** with classified refusal `spec_version_below_pin` when `specVersion < 441`. The observed `spec_version` is persisted on every snapshot and sync-run row (§5) so evidence is forever interpretable against the runtime that produced it. Rationale: V441 "Root Reborn" (Jul 2026) is a wire-format break — RootClaimed event moved 114→115 and SubtensorModule errors were renumbered (`yanez-bittensor-trust-monetization-2026-09-06.md:214`, `:211`; source: subtensor.com/learn/whats-new/v441). A pre-441 chain (or a misconfigured RPC pointing at an archive/testnet node behind the pin) produces bytes this connector must never silently reinterpret.
+The connector MUST read the chain runtime version (`state_getRuntimeVersion` → `specVersion`) at the start of every sync run and **refuse the run fail-loud** with classified refusal `spec_version_below_pin` when `specVersion < 441`. The observed `spec_version` is persisted on every snapshot and sync-run row (§5) so evidence is forever interpretable against the runtime that produced it. Rationale: V441 "Root Reborn" (Jul 2026) is a wire-format break — RootClaimed event moved 114→115 and SubtensorModule errors were renumbered (`yanez-bittensor-trust-monetization-2026-09-06.md:214`, `:211`; source: subtensor.com/learn/whats-new/v441). A pre-441 chain (or a misconfigured RPC pointing at an archive/testnet node behind the pin) produces bytes this connector must never silently reinterpret. The pin is evaluated for **every runtime segment** of the cursor window (§4.4), not only the version observed at run start: a window straddling an upgrade refuses the whole run if any segment is below 441.
 
 ### C2 — Decode events and errors BY NAME, never by index
 
-No numeric event index or error index appears anywhere in connector source, fixtures, or config. Decoding resolves variant **names** through the chain's own runtime metadata (V14/V15 `metadata.events` / `metadata.errors` for pallet `SubtensorModule`), fetched per sync run and cached keyed by `spec_version`. The canonical trap: **error index 157 silently changed meaning** `TooManyRootClaimHotkeys → BetaBasketSeedInProgress` at V441 (`yanez-bittensor-trust-monetization-2026-09-06.md:214`; `HO-2026-09-07-yanez-impl-handover.md:27`) — an index-keyed decoder does not fail, it *misreads success as a different failure* (or vice versa). By-name decoding makes the entire renumbering class structurally impossible: if a variant name is absent from the fetched metadata, the refusal is `decode_unknown_variant` (fail-loud, §9), never a positional guess.
+No numeric event index or error index appears anywhere in connector source, fixtures, or config. Decoding resolves variant **names** through the chain's own runtime metadata (V14/V15 `metadata.events` / `metadata.errors` for pallet `SubtensorModule`), fetched **per runtime segment** — resolved at the block hash covering the events being decoded, never once per run for a whole window that may straddle an upgrade (§4.4) — and cached keyed by `spec_version`. The canonical trap: **error index 157 silently changed meaning** `TooManyRootClaimHotkeys → BetaBasketSeedInProgress` at V441 (`yanez-bittensor-trust-monetization-2026-09-06.md:214`; `HO-2026-09-07-yanez-impl-handover.md:27`) — an index-keyed decoder does not fail, it *misreads success as a different failure* (or vice versa). By-name decoding makes the entire renumbering class structurally impossible: if a variant name is absent from the fetched metadata, the refusal is `decode_unknown_variant` (fail-loud, §9), never a positional guess.
 
 ### C3 — `BetaBasketSeedInProgress` = retryable, not terminal
 
@@ -70,10 +70,10 @@ subnet_sync_runs:  pending → running → { complete | pending_retry | failed }
 
 One run per `(subnet_node, cursor window)`:
 1. `state_getRuntimeVersion` → **C1 gate** (`spec_version_below_pin` refuses the run before any read).
-2. `state_getMetadata` → build/refresh the by-name event+error maps for `SubtensorModule`, cached under `spec_version` (**C2**).
+2. Split the cursor window into **runtime segments** at upgrade boundaries (§4.4). For each segment, resolve `state_getRuntimeVersion` + `state_getMetadata` at that segment's block hash and build/refresh the by-name event+error maps for `SubtensorModule`, cached under `spec_version` (**C2**). Run-start metadata is never reused across an upgrade boundary.
 3. Read subnet/neuron storage at a **finalized block**; record `block_number` + `block_hash`.
-4. Scan the cursor window's events, decoding **by name** (`RootClaimed`, registration/deregistration variants as named in fetched metadata — never 114/115 literals; the V441 move is absorbed structurally, `yanez-bittensor-trust-monetization-2026-09-06.md:214`).
-5. Write `subnet_performance_snapshots` rows (idempotent, §5) + raw evidence blob to R2 with its sha256 in-row.
+4. Scan each segment's events, decoding **by name** with that segment's metadata (`RootClaimed`, registration/deregistration variants as named in the fetched metadata — never 114/115 literals; the V441 move is absorbed structurally, `yanez-bittensor-trust-monetization-2026-09-06.md:214`).
+5. Write `subnet_performance_snapshots` rows (idempotent, §5) + raw evidence blob to R2 with its sha256 in-row; each row persists the `spec_version` **in effect at its block**, which may differ from the run-start version when the window straddled an upgrade.
 6. Advance the cursor; mark `complete`. Any classified transient (§9) → `pending_retry` with backoff; terminal → `failed` with `last_error_class`.
 
 ### 4.3 Agent ↔ hotkey binding
@@ -82,13 +82,14 @@ Subnet data is keyed by SS58 hotkey; certificates are keyed by Homeport `agent_i
 
 ### 4.4 spec_version pinning mechanics (C1 detail)
 
-- `MIN_SPEC_VERSION = 441` is a **named constant with a comment citing V441** (RootClaimed 114→115; error 157 meaning change) — the only numeric literal of its kind allowed, and it gates rather than decodes.
-- Every snapshot and sync-run row stores the observed `spec_version`; the evidence digest (§6.3) commits to it, so a verifier knows which runtime metadata to fetch.
-- A chain that *upgrades past* 441 is fine: by-name decoding re-resolves from fresh metadata; unknown variant names refuse loud (`decode_unknown_variant`) instead of guessing — the connector degrades to "needs a code update", never to "silently wrong".
+- `MIN_SPEC_VERSION = 441` is a **named constant with a comment citing V441** (RootClaimed 114→115; error 157 meaning change) — the only numeric literal of its kind allowed, and it gates rather than decodes. The gate applies to **every runtime segment** of the cursor window: a window straddling an upgrade refuses the whole run (`spec_version_below_pin`) if any segment is below 441.
+- **Straddling windows are split, never decoded with one map.** The connector detects runtime-upgrade boundaries inside the cursor window (`state_getRuntimeVersion` resolved at candidate block hashes and/or the by-name runtime-upgraded event scanned with the segment's own metadata), splits the window into single-runtime segments, and resolves metadata per segment at that segment's block hash. Decoding a block-N event with block-M metadata (M > N, across an upgrade) is exactly the silent-misread class C2 exists to prevent — a single run-start fetch would mis-decode the pre-upgrade part of the window and stamp it with the wrong `spec_version`, breaking the C1/C2 guarantee and the block-level re-derivation story (§6.2).
+- Every snapshot row stores the `spec_version` **in effect at its block**; the sync-run row stores the run-start (head) version for the C1 gate audit. The evidence digest (§6.3) commits to the per-snapshot version, so a verifier knows exactly which runtime metadata to fetch for each cited block.
+- A chain that *upgrades past* 441 is fine: by-name decoding re-resolves from fresh per-segment metadata; unknown variant names refuse loud (`decode_unknown_variant`) instead of guessing — the connector degrades to "needs a code update", never to "silently wrong".
 
 ## 5. Data model (D1 via Drizzle — new SUBNET PERFORMANCE domain)
 
-Conventions mirror the existing schema: `sqliteTable`, snake_case columns, `text` ULID/UUID primary keys, `integer` unix-epoch timestamps defaulting `sql\`(unixepoch())\``, explicit indexes (`homeport/src/lib/db/schema.ts:68-137` cert domain, `:217-237` `reputation_snapshots`). New domain block appended to `schema.ts` + a `subnet-performance.ts` repository in `homeport/src/lib/db/repositories/` (pattern: `repositories/certifier.ts`, `repositories/observer.ts`). Drizzle migration generated under `homeport/drizzle/`.
+Conventions mirror the existing schema: `sqliteTable`, snake_case columns, `text` ULID/UUID primary keys, `integer` unix-epoch timestamps defaulting `sql\`(unixepoch())\``, explicit indexes (`homeport/src/lib/db/schema.ts:68-137` cert domain, `:217-237` `reputation_snapshots`). New domain block appended to `schema.ts` + a `subnet-performance.ts` repository in `homeport/src/lib/db/repositories/` (pattern: `repositories/certifier.ts`, `repositories/observer.ts`). The migration is **hand-written SQL**, per the repo AGENTS.md rule: *"Migrations are hand-written SQL in `drizzle/migrations/`. Do not run `drizzle-kit push`; append a new numbered migration file and update `drizzle/migrations/meta/_journal.json`."* — i.e. append the next numbered file (pattern: `drizzle/migrations/0008_federation_peer_public_keys.sql`) and update the journal in the same commit.
 
 ```ts
 // ---- SUBNET PERFORMANCE DOMAIN (5 tables) ----
@@ -113,7 +114,8 @@ export const subnetSyncRuns = sqliteTable('subnet_sync_runs', {
   status: text('status').default('pending'),   // pending | running | pending_retry | complete | failed
   cursorBlock: integer('cursor_block'),        // last finalized block ingested
   headBlock: integer('head_block'),
-  specVersion: integer('spec_version'),        // C1: observed at run start; null until read
+  specVersion: integer('spec_version'),        // C1: head version observed at run start; null until read.
+                                               // Snapshot rows carry the per-block in-effect version (§4.4)
   attempts: integer('attempts').default(0),
   lastErrorClass: text('last_error_class'),    // classified refusal string (§9), never a raw stack
   startedAt: integer('started_at').default(sql`(unixepoch())`),
@@ -128,7 +130,7 @@ export const subnetPerformanceSnapshots = sqliteTable('subnet_performance_snapsh
   hotkeySs58: text('hotkey_ss58').notNull(),
   blockNumber: integer('block_number').notNull(),
   blockHash: text('block_hash').notNull(),     // T1 re-derivability anchor
-  specVersion: integer('spec_version').notNull(), // C1: runtime that produced this row
+  specVersion: integer('spec_version').notNull(), // C1: runtime in effect at this row's block (per-segment, §4.4)
   emissionRank: integer('emission_rank'),
   validatorTrustScore: real('validator_trust_score'),
   consensusScore: real('consensus_score'),
@@ -141,7 +143,16 @@ export const subnetPerformanceSnapshots = sqliteTable('subnet_performance_snapsh
   evidenceSha256: text('evidence_sha256'),
   fetchedAt: integer('fetched_at').default(sql`(unixepoch())`)
 }, (t) => ({
-  idemIdx: uniqueIndex('idx_sps_idem').on(t.subnetNodeId, t.hotkeySs58, t.blockNumber), // idempotent re-sync
+  // Idempotent re-sync **per source tier**: T1 chain rows and T2/T3 adapter rows for the
+  // same (node, hotkey, block) coexist as separately stored evidence and never collapse
+  // into one another — the index enforces the §4.1 no-silent-merge rule instead of
+  // violating it (a tier-blind key would discard supplementary T2 data or block T1 writes).
+  idemIdx: uniqueIndex('idx_sps_idem').on(
+    t.subnetNodeId,
+    t.hotkeySs58,
+    t.blockNumber,
+    t.sourceTier
+  ),
   hotkeyIdx: index('idx_sps_hotkey').on(t.hotkeySs58, t.fetchedAt)
 }));
 
@@ -165,6 +176,8 @@ export const subnetEvidenceBundles = sqliteTable('subnet_evidence_bundles', {
   netuid: integer('netuid').notNull(),
   windowStartBlock: integer('window_start_block').notNull(),
   windowEndBlock: integer('window_end_block').notNull(),
+  // One bundle covers exactly ONE runtime segment (§4.4): a window straddling an
+  // upgrade splits into multiple bundles, so this single version is never ambiguous.
   specVersion: integer('spec_version').notNull(),
   snapshotIds: text('snapshot_ids').notNull(), // JSON array
   bundleSha256: text('bundle_sha256').notNull(), // sha256 over canonical JSON of the bundle (§6.3)
@@ -196,8 +209,8 @@ New service module `homeport/src/lib/services/subnet-performance/` mirroring the
 }
 ```
 
-- The existing HMAC internal-integrity signature (`service.ts:153` `signCertHMAC`, `:398`) and Ed25519 VC proof (`service.ts:438` `buildVCProof`) cover the extended subject **unchanged** — the bundle digest rides inside the signed canonical JSON, so tampering with evidence breaks the proof.
-- StatusList2021 revocation (`04-homeport-gap.md:28`; `schema.ts:121-137` `cert_revocations`) applies to subnet-evidence certificates as to any other; a revoked binding (§5 `revokedAt`) triggers the certifier's existing cascading-revocation path (`homeport/src/lib/services/certifier/revocation.ts`, 204 lines — `04-homeport-gap.md:47`).
+- The Ed25519 VC proof (`service.ts:438` `buildVCProof`, computed over the serialized VC) covers the extended subject **unchanged** — the bundle digest rides inside the signed canonical JSON, so tampering with evidence breaks the proof. The HMAC internal-integrity signature does **not**: `signCertHMAC` today signs only `certId|agentId|capability|score|grade` (`service.ts:153-161`, called at `:398`), so adding fields to `credentialSubject` does not extend its coverage. **Required work (§6.6):** the HMAC payload MUST be extended to cover the new `subnetPerformance` fields (at minimum `evidence_bundle_sha256`) with its verification contract updated in the same change; until that lands, an internal consumer validating only the HMAC could accept modified subnet evidence, so consumers MUST rely on the Ed25519 proof for evidence integrity.
+- StatusList2021 revocation (`04-homeport-gap.md:28`; `schema.ts:121-137` `cert_revocations`) applies to subnet-evidence certificates as to any other. **No binding→certificate cascade exists today:** `revocation.ts` revokes only a single explicitly supplied `certId` (`revokeCertificate`, `homeport/src/lib/services/certifier/revocation.ts:35-85`), and no `revokeCertificate` call site has a binding hook (the cascading revocation in `src/lib/server/delegation-grants.ts` is the delegation-grant mechanism, not a certificate cascade). **Required work (§6.6):** revoking a binding (§5 `revokedAt`) MUST enumerate every bundle/certificate attached to that binding (`agent_subnet_bindings` → `subnet_evidence_bundles.certId` → `certificates`) and revoke each via `revokeCertificate`; without that path, certificates based on a withdrawn proof of control would remain valid.
 - **Staleness gate:** a bundle older than `SUBNET_EVIDENCE_MAX_AGE_DAYS` (config, default 7) is refused at issuance with `subnet_evidence_stale` — the certificate may still issue *without* the section (capability score stands alone), fail-loud logged; never issue with stale evidence silently embedded.
 
 ### 6.2 Offline-verifiable anchor (the M1 exit criterion)
@@ -219,8 +232,18 @@ Bundle sha256 = sha256 over canonical JSON (sorted keys, UTF-8, no whitespace) o
 
 ### 6.5 Scheduling + operator toggle
 
-- Cron route `POST /api/cron/subnet-sync` (lane D `requireCronAuth`, `auth-lanes.ts:11`), hourly alongside existing crons (`wrangler.jsonc:44`), walking enabled `subnet_nodes` rows.
+- Cron route `POST /api/cron/subnet-sync` (lane D `requireCronAuth`, `auth-lanes.ts:11`), hourly alongside existing crons (`wrangler.jsonc:44`), walking enabled `subnet_nodes` rows. **Required work (§6.6):** the wrangler cron trigger alone does NOT invoke this route — `scripts/inject-scheduled-handler.js` (lines 81-94) explicitly enumerates each cron route inside the injected `scheduled` handler and has no generic route discovery, so the implementation MUST add `runTask('subnet-sync', '/api/cron/subnet-sync')` there or production cron events will never run the connector.
 - Node-settings toggle `subnetPerformanceEnabled`, **off by default**, owner-controlled in admin settings — exact mirror of `yanezEnabled` (`homeport/src/lib/services/node-settings/service.ts:31-36`; operator opt-in note `04-homeport-gap.md:77`).
+
+### 6.6 Required code changes (implementation plan)
+
+Design-intent items that do **not** exist in current code and MUST be implemented — named here so nothing above reads as "already built":
+
+1. **Per-segment metadata resolution** (§4.2, §4.4): split cursor windows at runtime-upgrade boundaries and resolve `state_getRuntimeVersion`/`state_getMetadata` per segment at the segment's block hash; persist the per-block in-effect `spec_version` on every snapshot (C1/C2 correctness for straddling windows).
+2. **HMAC payload extension** (§6.1): `signCertHMAC` (`service.ts:153-161`) signs only `certId|agentId|capability|score|grade` today; the payload and its verification contract MUST be extended to cover the new `subnetPerformance` credentialSubject fields (at minimum `evidence_bundle_sha256`).
+3. **Binding-revocation cascade** (§6.1): a new path from a revoked `agent_subnet_bindings` row to every attached bundle/certificate, calling `revokeCertificate` per cert — `revocation.ts:35-85` today revokes only one explicitly supplied `certId` and has no binding relationship to traverse.
+4. **Scheduled-handler wiring** (§6.5): add `/api/cron/subnet-sync` to the injected handler in `scripts/inject-scheduled-handler.js` (lines 81-94).
+5. **Hand-written migration** (§5): append the next numbered SQL file under `drizzle/migrations/` and update `drizzle/migrations/meta/_journal.json` in the same commit (repo AGENTS.md rule; never `drizzle-kit push`).
 
 ## 7. Failure & retry semantics
 
@@ -237,7 +260,7 @@ Classified, loud, never silent (house law; the certifier's own fail-loud posture
 | `subnet_evidence_stale` | Bundle older than max-age at issuance (§6.1) | Terminal for the attach | Cert issues without the section; loud log |
 | `ssrf_guard_rejected` | Admin-configured RPC URL fails the guard (§8) | Terminal for the config write | Refuse the row; admin error |
 
-Idempotency: the `idx_sps_idem` unique index (§5) makes re-sync of the same `(node, hotkey, block)` a no-op — safe retries at every layer, the same discipline as the cert queue's *"checks for existing trial_results before INSERT to support safe retries"* (`queue-handler.ts:10-13`).
+Idempotency: the `idx_sps_idem` unique index (§5) makes re-sync of the same `(node, hotkey, block, source_tier)` a no-op, while T1/T2/T3 rows for the same block coexist as separately stored evidence and never collapse into one another (the §4.1 no-silent-merge rule) — safe retries at every layer, the same discipline as the cert queue's *"checks for existing trial_results before INSERT to support safe retries"* (`queue-handler.ts:10-13`).
 
 ## 8. Security considerations
 
@@ -267,13 +290,14 @@ Vitest unit + Playwright E2E per the repo's testing standard (`homeport/docs/TES
 | T3 | **spec_version pin:** mocked `state_getRuntimeVersion` → 440 refuses run with `spec_version_below_pin`, writes zero snapshots; 441 and 445 pass | C1 |
 | T4 | **BetaBasketSeedInProgress retry:** injected error → run goes `pending_retry`, backoff scheduled, 5th attempt exhausts to `failed` with the retryable class recorded, and a linked cert job is **unaffected** | C3 |
 | T5 | **decode_unknown_variant:** metadata without an expected variant name → terminal fail-loud, no partial snapshots | C2 |
-| T6 | **Idempotent re-sync:** same window synced twice → unique-index no-op, cursor stable | §7 |
+| T6 | **Idempotent re-sync:** same window synced twice → unique-index no-op per `(node, hotkey, block, source_tier)`, cursor stable; a T2 adapter row for an existing T1 `(node, hotkey, block)` inserts alongside it, never overwrites or is discarded | §7, §4.1 no-silent-merge |
 | T7 | **VC embedding + offline verify E2E:** issue a cert with the `subnetPerformance` section; verify Ed25519 proof offline (Web Crypto, no node contact); recompute bundle sha256; assert match — the M1 exit criterion (`train-seed-yanez-bittensor-1.0.json:32`) | §6.1-6.3 |
 | T8 | **Stale-evidence gate:** bundle aged past max-age → cert issues without section, `subnet_evidence_stale` logged | §6.1 |
 | T9 | **SSRF guard:** private-range RPC URL rejected at config write and at fetch | §8 |
 | T10 | **Toggle default-off:** fresh node → `subnetPerformanceEnabled=false`, cron route no-ops | §6.5 |
 | T11 | **CI parity scrub:** suites pass with ambient state scrubbed (`env -i`, empty HOME) — no desk-only state dependency | house law (green-on-your-desk-is-not-green) |
 | T12 | **Public-safe audit (C4):** fixture/source scan for Nexartis-only identifiers, hardcoded netuid 34 in source paths, secrets — zero hits | C4 |
+| T13 | **Straddling-window split:** a cursor window spanning a simulated runtime upgrade (two synthetic metadata fixtures, versions V and V+1) → the run splits into two segments, decodes each segment's events with that segment's metadata, persists the per-block in-effect `spec_version`, and refuses the run if either segment is below the pin; assert no event is decoded with the wrong segment's map and no snapshot carries the run-start version across the boundary | C1/C2 (§4.4) |
 
 ## 11. Out of scope
 
@@ -337,6 +361,9 @@ Vitest unit + Playwright E2E per the repo's testing standard (`homeport/docs/TES
 | Trust score entry shape | `homeport/src/lib/services/trust/trust-score-api.ts:22-100` |
 | Inline processing model; cron routes; lane D cron auth | `homeport/docs/CERTIFICATION_COMPLIANCE.md` §Inline processing model; `homeport/src/routes/api/cron/`; `homeport/src/lib/server/auth-lanes.ts:11`; `homeport/src/hooks.server.ts:354-376`; `homeport/wrangler.jsonc:44` |
 | Cert queue idempotent-retry convention (5×) | `homeport/src/lib/services/certifier/queue-handler.ts:10-13` |
+| Scheduled handler enumerates each cron route explicitly (no route discovery) | `homeport/scripts/inject-scheduled-handler.js:81-94` |
+| `revokeCertificate` revokes only one explicit `certId` (no binding cascade); delegation cascade is a separate mechanism | `homeport/src/lib/services/certifier/revocation.ts:35-85`; `homeport/src/lib/server/delegation-grants.ts:107` |
+| Hand-written SQL migration rule (no `drizzle-kit push`; numbered file + journal) | `homeport/AGENTS.md` §Ground rules; pattern `homeport/drizzle/migrations/0008_federation_peer_public_keys.sql` + `meta/_journal.json` |
 | `yanezEnabled` default-off toggle pattern | `homeport/src/lib/services/node-settings/service.ts:31-36` |
 | Yanez fail-loud base-URL precedent | `homeport/src/lib/services/yanez/service.ts:82` (`publicBase`) |
 | Docs index convention (source-of-truth index; current-state sub-docs) | `homeport/docs/PRODUCT_ARCHITECTURE.md:11-13` |
