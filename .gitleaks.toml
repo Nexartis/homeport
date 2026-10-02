@@ -1,0 +1,58 @@
+# Gitleaks configuration for Homeport.
+#
+# Extends the default gitleaks ruleset and adds narrowly-scoped allowlists for
+# values the default rules flag by *shape* but which are not secrets:
+#
+#   1. env-var / binding NAMES and KV key NAMES (identifiers, never key material)
+#   2. documentation placeholders
+#   3. the throwaway Ed25519 test keypair committed in `wrangler.test.jsonc`
+#
+# Every entry pins the full detected secret (`regexTarget = "secret"`, anchored).
+# There are deliberately no path- or directory-level ignores: if a real secret
+# ever shows up next to one of these names/placeholders it is still reported.
+
+[extend]
+useDefault = true
+
+# Env-var / binding names that `generic-api-key` mistakes for values, e.g.
+#   originalEd25519PrivateKey = env.KYM_NANDA_ED25519_PRIVATE_KEY_v1;
+[[allowlists]]
+description = "Binding/env-var NAMES, not secret values"
+regexTarget = "secret"
+regexes = [
+  '''^env\.KYM_NANDA_ED25519_PRIVATE_KEY_v1$''',
+  '''^KYM_NANDA_ED25519_PRIVATE_KEY_v1$''',
+]
+
+# KV secret key names (stored under `__node_secrets:ed25519_private_key_v1`).
+# These are lookup identifiers, never key material.
+[[allowlists]]
+description = "KV secret key NAMES, not secret values"
+regexTarget = "secret"
+regexes = [
+  '''^ed25519_private_key_v[12]$''',
+]
+
+# Placeholders that appear in docs and test setup.
+[[allowlists]]
+description = "Documentation/test placeholders, not real credentials"
+regexTarget = "secret"
+regexes = [
+  '''^nanda_YOUR_KEY$''',
+  '''^nanda_YOUR_KEY_HERE$''',
+  '''^test-ed25519-key-placeholder$''',
+]
+
+# Test-only Ed25519 keypair committed in `wrangler.test.jsonc`. It exists purely
+# so the federation/peer-replay/certifier suites can sign with a stable key that
+# derives to `NANDA_ED25519_PUBLIC_KEY_v1` in the same file. Production nodes get
+# their key from the Cloudflare Secrets Store (see `wrangler.jsonc` and
+# `docs/secret-provisioning.md`); this literal is never used outside the test
+# environment. Pinned by exact value so history scans stay green without
+# rewriting git history.
+[[allowlists]]
+description = "Test-only Ed25519 private key literal in wrangler.test.jsonc"
+regexTarget = "secret"
+regexes = [
+  '''^MC4CAQAwBQYDK2VwBCIEIKWtEFgP01AMWwxdiZsN5ACdOTJD/\+zbwsuhMrwkijLi$''',
+]
