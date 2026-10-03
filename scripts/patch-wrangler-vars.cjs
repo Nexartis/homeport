@@ -20,13 +20,11 @@
 // key was absent and caused `missing required var SITE_NAME` prod failures.
 //
 // Usage:
-//   node scripts/patch-wrangler-vars.cjs --file wrangler.jsonc KEY=VALUE [KEY=VALUE ...]
+//   node scripts/patch-wrangler-vars.cjs --file wrangler.jsonc --env <name> KEY=VALUE [KEY=VALUE ...]
 //
 // =============================================================================
 
 const fs = require('fs');
-
-const DEFAULT_ENV_NAME = 'acme-nanda';
 
 function stripJsoncComments(content) {
 	let out = '';
@@ -75,11 +73,16 @@ function parseJsonc(content) {
 }
 
 function parseArgs(argv) {
-	const args = { file: '', pairs: [] };
+	const args = { file: '', envName: '', pairs: [] };
 	for (let i = 2; i < argv.length; i += 1) {
 		const token = argv[i];
 		if (token === '--file') {
 			args.file = argv[i + 1];
+			i += 1;
+			continue;
+		}
+		if (token === '--env') {
+			args.envName = argv[i + 1];
 			i += 1;
 			continue;
 		}
@@ -91,28 +94,26 @@ function parseArgs(argv) {
 		args.pairs.push([key, token.slice(eq + 1)]);
 	}
 	if (!args.file) throw new Error('Missing required --file');
+	if (!args.envName) throw new Error('Missing required --env <name> (never default a tenant env)');
 	if (args.pairs.length === 0) throw new Error('No KEY=VALUE pairs provided');
 	return args;
 }
 
-// Resolve the canonical Pegasus deployment env block. Fails LOUDLY if it
-// doesn't exist — deploy.js hard-codes `wrangler deploy --env
-// acme-nanda`, so patching any other env (or silently
-// creating a fresh one) would reproduce the exact "silent success, vars
-// missing at deploy time" failure this patcher exists to eliminate.
-// Confirmed: zero of the 392 tenant branches on this template use a
-// non-canonical pegasus env name (full-scan 2026-07-05).
-function resolvePegasusEnv(wrangler) {
+// Resolve the env block named by --env. Fails LOUDLY if missing — never
+// silently create or fall back. Pegasus tenants historically used
+// `acme-nanda`; this repo also ships `pegasus-horizon-breakthrough`.
+// Callers must pass the env they will deploy (`wrangler deploy --env <name>`).
+function resolvePegasusEnv(wrangler, envName) {
 	if (!wrangler || typeof wrangler !== 'object')
 		throw new Error('wrangler.jsonc root must be an object');
 	if (!wrangler.env || typeof wrangler.env !== 'object')
 		throw new Error('wrangler.jsonc env must be an object');
-	const envName = DEFAULT_ENV_NAME;
+	if (!envName) throw new Error('env name is required');
 	const envConfig = wrangler.env[envName];
 	if (!envConfig || typeof envConfig !== 'object') {
 		const found = Object.keys(wrangler.env).filter((k) => k.startsWith('pegasus-'));
 		const hint = found.length
-			? ` (found other pegasus-* envs: ${found.join(', ')} — this tenant needs branch surgery to rename to the canonical env before Pegasus can deploy it)`
+			? ` (found pegasus-* envs: ${found.join(', ')} — pass --env matching the wrangler deploy --env you will run)`
 			: '';
 		throw new Error(
 			`wrangler.jsonc missing required env.${envName} block${hint}. deploy.js always runs \`wrangler deploy --env ${envName}\`; patching a different env would leave the deploy env unpatched.`
@@ -121,8 +122,8 @@ function resolvePegasusEnv(wrangler) {
 	return { envName, envConfig };
 }
 
-function patchVars(wrangler, pairs) {
-	const { envName, envConfig } = resolvePegasusEnv(wrangler);
+function patchVars(wrangler, pairs, requestedEnv) {
+	const { envName, envConfig } = resolvePegasusEnv(wrangler, requestedEnv);
 	envConfig.vars = envConfig.vars && typeof envConfig.vars === 'object' ? envConfig.vars : {};
 	for (const [key, value] of pairs) {
 		envConfig.vars[key] = value;
@@ -134,7 +135,7 @@ if (require.main === module) {
 	try {
 		const args = parseArgs(process.argv);
 		const wrangler = parseJsonc(fs.readFileSync(args.file, 'utf8'));
-		const envName = patchVars(wrangler, args.pairs);
+		const envName = patchVars(wrangler, args.pairs, args.envName);
 		fs.writeFileSync(args.file, JSON.stringify(wrangler, null, '\t') + '\n');
 		console.log(
 			`patch-wrangler-vars: set ${args.pairs.map(([key]) => key).join(', ')} in env.${envName}`

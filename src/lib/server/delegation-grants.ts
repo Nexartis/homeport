@@ -102,6 +102,19 @@ export const PUH_FRESHNESS_MS = 5 * 60 * 1000;
  */
 const PUH_SKEW_MS = 30_000;
 
+/**
+ * Fail-closed bound on delegation-chain depth, enforced at mint time.
+ * The revocation cascade (`collectDescendants`) and the `checkDelegation`
+ * ancestor walk are each bounded to this many hops; without a mint-time
+ * bound a grant more than 2x this depth below a revoked ancestor evades
+ * BOTH bounded walks and stays valid (production fail-open, disclosed by
+ * the `delegated_admission` port in projnanda/nandatown PR #167,
+ * VERIFICATION.md divergence 7). `grantDelegation` refuses a child whose
+ * ancestor chain would exceed this bound with `chain-too-deep`, so every
+ * legal chain is provably covered by both bounded walks.
+ */
+export const MAX_CHAIN_DEPTH = 32;
+
 export interface GrantResult {
 	delegationId: string;
 	kymVcId: string | null;
@@ -544,6 +557,20 @@ export async function grantDelegation(
 		if (!parent) {
 			throw new DelegationGrantError('parent-not-found', 'parentDelegationId does not exist');
 		}
+		if (parent.status === 'revoked') {
+			throw new DelegationGrantError('parent-revoked', 'Parent delegation is revoked');
+		}
+		// Mint-time fail-closed depth bound (nandatown#167 divergence 7): the
+		// child would carry ancestorDepth(parent) + 1 ancestors; past
+		// MAX_CHAIN_DEPTH the bounded cascade/ancestor walks could no longer
+		// cover the chain, so refuse the mint instead of failing open.
+		const parentDepth = await ancestorDepth(db, parent);
+		if (parentDepth + 1 > MAX_CHAIN_DEPTH) {
+			throw new DelegationGrantError(
+				'chain-too-deep',
+				`Delegation chain depth ${parentDepth + 1} would exceed MAX_CHAIN_DEPTH ${MAX_CHAIN_DEPTH}`
+			);
+		}
 		assertChainNarrowing(parent, {
 			grantedScope: input.grantedScope,
 			expiresAt: input.expiresAt,
@@ -648,13 +675,40 @@ export async function revokeDelegation(
 }
 
 /**
- * BFS through parent_delegation_id → child rows. Bounded to 32 hops to
- * cheaply defuse pathological chains; real chains are 2-3 deep.
+ * Count the ancestors above `grant` (cycle-safe). Used at mint time to
+ * keep every chain shallow enough that the bounded revocation cascade and
+ * the `checkDelegation` ancestor walk provably cover it. The walk itself is
+ * unbounded but cycle-safe so legacy rows minted before the depth bound
+ * still measure honestly.
+ */
+async function ancestorDepth(
+	db: DbClient,
+	grant: Pick<DelegationTaskRecord, 'parentDelegationId'>
+): Promise<number> {
+	let depth = 0;
+	const seen = new Set<string>();
+	let cursor = grant.parentDelegationId;
+	while (cursor && !seen.has(cursor)) {
+		seen.add(cursor);
+		const ancestor = await db.query.delegationTasks.findFirst({
+			where: eq(delegationTasks.id, cursor)
+		});
+		if (!ancestor) break;
+		depth++;
+		cursor = ancestor.parentDelegationId;
+	}
+	return depth;
+}
+
+/**
+ * BFS through parent_delegation_id → child rows. Bounded to MAX_CHAIN_DEPTH
+ * hops to cheaply defuse pathological chains; real chains are 2-3 deep, and
+ * the mint-time bound guarantees every legal chain is fully covered.
  */
 async function collectDescendants(db: DbClient, rootId: string): Promise<string[]> {
 	const out: string[] = [];
 	let frontier: string[] = [rootId];
-	const MAX_HOPS = 32;
+	const MAX_HOPS = MAX_CHAIN_DEPTH;
 	for (let hop = 0; hop < MAX_HOPS && frontier.length > 0; hop++) {
 		const kids = await db.query.delegationTasks.findMany({
 			where: inArray(delegationTasks.parentDelegationId, frontier)
@@ -698,7 +752,7 @@ export async function checkDelegation(db: DbClient, delegationId: string): Promi
 		let cursor = row.parentDelegationId;
 		const seen = new Set<string>();
 		let hops = 0;
-		while (cursor && hops < 32 && !seen.has(cursor)) {
+		while (cursor && hops < MAX_CHAIN_DEPTH && !seen.has(cursor)) {
 			seen.add(cursor);
 			hops++;
 			const parent = await db.query.delegationTasks.findFirst({

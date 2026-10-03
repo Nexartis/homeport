@@ -39,10 +39,12 @@ default local validation path. Keep `.dev.vars` untracked — it is
 ## Cloudflare resources
 
 Each node owns its own D1 database, R2 bucket, and KV namespace. The
-default template `wrangler.jsonc` declares environments (`dev` and
-`prod`); create the resources under your own Cloudflare account,
-paste the returned IDs into your local `wrangler.jsonc` (or a
-private overlay), and deploy.
+default template `wrangler.jsonc` declares six environments — `dev`,
+`test`, `prod`, and `testnet` deployment targets, plus the `nexartis`
+and `pegasus-horizon-breakthrough` provisioning overlays resolved by
+the Cubicube deployment engine; create the resources under your own
+Cloudflare account, paste the returned IDs into your local
+`wrangler.jsonc` (or a private overlay), and deploy.
 
 | Binding              | Type   | Purpose                                 |
 | -------------------- | ------ | --------------------------------------- |

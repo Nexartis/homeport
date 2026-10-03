@@ -95,6 +95,89 @@
 			}
 			// "routes": [{ "pattern": "nanda.example.com", "custom_domain": true }]
 		},
+		"nexartis": {
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "homeport-db-dev",
+					"database_id": "__PEGASUS_PROVISION__",
+					"migrations_dir": "drizzle/migrations"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "KYM_NANDA_EVIDENCE",
+					"bucket_name": "homeport-evidence-dev"
+				}
+			],
+			"kv_namespaces": [
+				{
+					"binding": "NANDA_NODE_CACHE",
+					"id": "__PEGASUS_PROVISION__"
+				}
+			],
+			"triggers": { "crons": ["0 * * * *"] },
+			"vars": {
+				"ENVIRONMENT": "development",
+				"LOG_LEVEL": "debug",
+				"NANDA_REGISTRY_URL": "https://homeport.nexartis.com",
+				"NANDA_ED25519_PUBLIC_KEY_v1": "",
+				"SENTINEL_API_URL": "https://sentinel.ocmeregistry.com/api",
+				"VITE_BASE_URL": "https://homeport.nexartis.com",
+				"SITE_OWNER_EMAIL": "",
+				"FROM_EMAIL": "",
+				"NANDA_FEDERATION_PEER_URL": "",
+				"NANDA_NODE_ID": "homeport-nexartis-demo",
+				"PAYMENT_PAYEE": "service",
+				"CERT_VALIDITY_DAYS": "90",
+				"CERT_PASS_THRESHOLD": "0.8",
+				"NP_TO_USD_RATE": "0.001",
+				"EUR_TO_USD_RATE": "1.08",
+				"SENTINEL_POST_AUTH_REDIRECT": "/admin"
+			},
+			"routes": [{ "pattern": "homeport.nexartis.com", "custom_domain": true }]
+		},
+		"pegasus-horizon-breakthrough": {
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "homeport-db-pegasus",
+					"database_id": "__PEGASUS_PROVISION__",
+					"migrations_dir": "drizzle/migrations"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "KYM_NANDA_EVIDENCE",
+					"bucket_name": "homeport-evidence-pegasus"
+				}
+			],
+			"kv_namespaces": [
+				{
+					"binding": "NANDA_NODE_CACHE",
+					"id": "__PEGASUS_PROVISION__"
+				}
+			],
+			"triggers": { "crons": ["0 * * * *"] },
+			"vars": {
+				"ENVIRONMENT": "production",
+				"LOG_LEVEL": "info",
+				"NANDA_REGISTRY_URL": "",
+				"NANDA_ED25519_PUBLIC_KEY_v1": "",
+				"SENTINEL_API_URL": "https://sentinel.ocmeregistry.com/api",
+				"VITE_BASE_URL": "",
+				"SITE_OWNER_EMAIL": "__PEGASUS_PROVISION__",
+				"FROM_EMAIL": "__PEGASUS_PROVISION__",
+				"NANDA_FEDERATION_PEER_URL": "__PEGASUS_PROVISION__",
+				"NANDA_NODE_ID": "__PEGASUS_PROVISION__",
+				"PAYMENT_PAYEE": "service",
+				"CERT_VALIDITY_DAYS": "90",
+				"CERT_PASS_THRESHOLD": "0.8",
+				"NP_TO_USD_RATE": "0.001",
+				"EUR_TO_USD_RATE": "1.08",
+				"SENTINEL_POST_AUTH_REDIRECT": "/admin"
+			}
+		},
 		"test": {
 			"d1_databases": [
 				{

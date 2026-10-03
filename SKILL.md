@@ -5,7 +5,7 @@
 > chain back to a human principal — an agent's authority only counts if
 > a human said it could act.
 > **Base URL:** `https://your-homeport.example.com` (replace with
-> your own Homeport node URL; managed hosting available at
+> your own Homeport node URL; managed hosting announced at
 > [cubicube.com](https://cubicube.com))
 > **Tags:** `trust` `delegation` `revocation` `cascade` `proof-of-human`
 > `yanez` `ed25519` `verifiable-admission` `nanda` `a2a`
@@ -26,9 +26,10 @@ scope, grantee, expiry, and parent it was issued for. Change one byte —
 one tool name, one second of TTL — and the hash breaks and the grant is
 refused.
 
-This is **production code**: the same service runs on live NANDA
-nodes deployed via Cubicube. The deterministic Python port of this
-exact verification logic is contributed to `projnanda/nandatown` as
+This is **production code**: this service is the delegation module of
+the Homeport node (managed fleet deployment via Cubicube is announced
+but not yet publicly live). The deterministic Python port of this
+exact verification logic is submitted to `projnanda/nandatown` as
 the trust-layer plugin `delegated_admission`, with byte-parity
 fixtures generated from this service.
 
@@ -240,14 +241,17 @@ grant broader authority than your parent grant → `scope-widens-parent`.
   https://github.com/Nexartis/homeport. Delegation logic in
   `src/lib/server/delegation-grants.ts`, exercised by
   `tests/delegation-grants.test.ts`.
-- Fleet: a live fleet of NANDA nodes runs in production, deployed
-  via Cubicube.
+- Fleet: managed fleet deployment of Homeport nodes via Cubicube is
+  announced but not yet publicly live — no public fleet URL is
+  verifiable at this time. The live public NANDA deployments
+  (`nanda{,-dev,-test}.nexartis.com`) belong to the deprecated NANDA
+  Node alpha lineage that Homeport succeeds.
 - Human anchor: the `proof` envelope carries a Yanez biometric
   principal (`principalPk`) and preapproval `requestId` — the same
   proof-of-human ceremony that gates payments in our stack gates
   delegation minting.
 - Upstream: the deterministic Python port of this verifier is
-  contributed to `projnanda/nandatown` as the `delegated_admission`
+  submitted to `projnanda/nandatown` as the `delegated_admission`
   trust plugin, with adversarial validators that fail on the
   baseline trust plugin and pass on ours, under the same scenario.
 

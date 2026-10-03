@@ -159,6 +159,7 @@ if [ -f "$WRANGLER_CONFIG" ]; then
 	# as VITE_BASE_URL (workspace CORE-CUBI-CONVENTIONS.md).
 	node "$PATCHER" \
 		--file "$WRANGLER_CONFIG" \
+		--env acme-nanda \
 		"SITE_OWNER_EMAIL=$OWNER_EMAIL" \
 		"CONTACT_EMAIL_TO=$SUPPORT_EMAIL" \
 		"SITE_NAME=$OWNER_NAME" \
