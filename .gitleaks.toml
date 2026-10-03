@@ -115,4 +115,4 @@ description = "Verified non-secret generic-api-key value(s) in wrangler.test.jso
 condition = "AND"
 regexTarget = "secret"
 paths = ['''^wrangler\.test\.jsonc$''']
-regexes = ['''^MC4CAQAwBQYDK2VwBCIE''']
+regexes = ['''^MC4CAQAwBQYDK2VwBCIEIKWtEFgP01AMWwxdiZsN5ACdOTJD/\+zbwsuhMrwkijLi$''']
