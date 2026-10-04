@@ -6,7 +6,7 @@
 
 # Homeport
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](./LICENSE)
 [![npm: @nexartis/homeport-sdk](https://img.shields.io/npm/v/@nexartis/homeport-sdk.svg?label=%40nexartis%2Fhomeport-sdk)](https://www.npmjs.com/package/@nexartis/homeport-sdk)
 [![Docs](https://img.shields.io/badge/docs-homeport--sdk.nexartis.com-informational)](https://homeport-sdk.nexartis.com)
 
