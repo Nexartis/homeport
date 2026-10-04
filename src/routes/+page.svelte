@@ -141,7 +141,7 @@
 			</a>
 		</div>
 		<p class="mt-6 text-[12.5px] text-nanda-text-dim">
-			Apache-2.0 · Cloudflare Workers · Every agent needs a homeport.
+			Nexartis Proprietary License · Cloudflare Workers · Every agent needs a homeport.
 		</p>
 	</section>
 </div>
@@ -190,7 +190,7 @@
 					Homeport nodes can mint a Yanez biometric challenge, hand a signed QR to a human, and
 					receive a signed callback that anchors real personhood to an agent's AgentFacts record. It
 					is the first public point of interoperability between a self-hosted NANDA node and NANDA
-					Town — and it ships with this release under Apache-2.0.
+					Town — and it ships with this release under the Nexartis Proprietary License.
 				</p>
 				<ul class="mt-5 space-y-2 text-[14px] text-nanda-text-muted">
 					<li class="flex items-start gap-2">

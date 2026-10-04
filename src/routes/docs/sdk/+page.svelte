@@ -123,7 +123,7 @@
 			<p class="text-nanda-text-dim">yarn add @nexartis/homeport-sdk</p>
 		</div>
 		<p class="text-xs text-nanda-text-dim mt-3">
-			Apache-2.0 licensed · Works in Node 20+, Bun, Deno, Cloudflare Workers, and modern browsers ·
+			Nexartis Proprietary License · Works in Node 20+, Bun, Deno, Cloudflare Workers, and modern browsers ·
 			Built with npm provenance attestations.
 		</p>
 	</section>
@@ -515,7 +515,7 @@
 				<div class="flex-1">
 					<p class="text-sm font-semibold text-nanda-text">View on GitHub</p>
 					<p class="text-sm text-nanda-text-muted mt-1">
-						Source, issues, examples, and contributing guidelines. Apache-2.0 licensed.
+						Source, issues, examples, and contributing guidelines. Nexartis Proprietary License.
 					</p>
 					<p class="text-xs text-nanda-accent mt-2 inline-flex items-center gap-1">
 						Nexartis/homeport-sdk <ExternalLink class="h-3 w-3" />
