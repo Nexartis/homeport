@@ -236,8 +236,8 @@ grant broader authority than your parent grant → `scope-widens-parent`.
 
 ## Provenance
 
-- Server: **Homeport**, the Nexartis open-source, self-hostable
-  NANDA node (Apache-2.0) —
+- Server: **Homeport**, the Nexartis self-hostable
+  NANDA node (Nexartis Proprietary License) —
   https://github.com/Nexartis/homeport. Delegation logic in
   `src/lib/server/delegation-grants.ts`, exercised by
   `tests/delegation-grants.test.ts`.

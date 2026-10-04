@@ -1,7 +1,7 @@
 {
 	"name": "homeport",
 	"version": "1.0.0",
-	"license": "Apache-2.0",
+	"license": "SEE LICENSE IN LICENSE",
 	"description": "Homeport — the self-hostable NANDA node. Agent registry, trust, federation, and protocol switchboard on Cloudflare Workers.",
 	"private": true,
 	"type": "module",
@@ -37,7 +37,8 @@
 		"db:studio": "drizzle-kit studio",
 		"setup": "node scripts/setup.js",
 		"test:e2e": "playwright test",
-		"db:migrate": "drizzle-kit migrate"
+		"db:migrate": "drizzle-kit migrate",
+		"license:check": "node scripts/license-gate.mjs"
 	},
 	"packageManager": "pnpm@10.28.1",
 	"devDependencies": {

@@ -6,7 +6,7 @@
 
 # Homeport
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](./LICENSE)
 [![npm: @nexartis/homeport-sdk](https://img.shields.io/npm/v/@nexartis/homeport-sdk.svg?label=%40nexartis%2Fhomeport-sdk)](https://www.npmjs.com/package/@nexartis/homeport-sdk)
 [![Docs](https://img.shields.io/badge/docs-homeport--sdk.nexartis.com-informational)](https://homeport-sdk.nexartis.com)
 
@@ -124,7 +124,7 @@ personalized, and developed at **[cubicube.com](https://cubicube.com)**.
 
 Managed fleet deployment via Cubicube is announced but not yet
 publicly live — no public fleet URL exists at this time. The
-open-source node is Apache-2.0; commercial layers (managed fleet
+self-hosted node is proprietary (Nexartis Proprietary License); commercial layers (managed fleet
 deployment, business-class nodes, trust-plane services) are built on
 top of it, never inside it — your self-hosted node stays fully
 feature-complete.
@@ -236,4 +236,4 @@ you are contributing with the help of a coding agent.
 
 ## License
 
-Apache-2.0 — see [`LICENSE`](LICENSE). Copyright © 2026 Nexartis LLC.
+Nexartis Proprietary License (All Rights Reserved) — see [`LICENSE`](LICENSE) and [`LICENSES/LicenseRef-Nexartis-Proprietary.txt`](LICENSES/LicenseRef-Nexartis-Proprietary.txt). Copyright © 2026 Nexartis, LLC.
