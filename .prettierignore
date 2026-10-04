@@ -32,3 +32,4 @@ drizzle/migrations/
 # Generated OpenAPI spec
 static/openapi.json
 
+scripts/license-gate.mjs
