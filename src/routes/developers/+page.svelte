@@ -203,7 +203,7 @@
 		<p class="text-nanda-text-muted mb-6 text-[15px] max-w-[640px]">
 			Skip raw HTTP — use the official TypeScript SDK. Namespaced methods (<code>client.agents</code
 			>, <code>client.orchestration</code>, ...), typed errors, built-in retry &amp; circuit
-			breaker. Zero runtime dependencies, Apache-2.0 licensed.
+			breaker. Zero runtime dependencies, Nexartis Proprietary License.
 		</p>
 		<div class="nanda-card font-mono text-sm mb-6">
 			<p class="text-nanda-text">pnpm add @nexartis/homeport-sdk</p>

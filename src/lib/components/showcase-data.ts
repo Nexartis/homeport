@@ -20,7 +20,7 @@ export const showcaseNodes: ShowcaseNode[] = [
 		domain: 'delegated-admission.homeport.example',
 		tag: 'our nandatown entry',
 		blurb:
-			"Every agent carries a human's trust — verifiably. Human-anchored, cascade-revocable delegation. PR #167 upstream; free & open under Apache-2.0.",
+			"Every agent carries a human's trust — verifiably. Human-anchored, cascade-revocable delegation. PR #167 upstream; shipped under the Nexartis Proprietary License.",
 		glyph: 'DA',
 		hue: 55,
 		badge: 'Flagship'

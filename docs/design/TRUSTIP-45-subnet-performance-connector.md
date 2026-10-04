@@ -1,7 +1,7 @@
 # TRUSTIP-45 — Subnet-Performance Connector: Design
 
 **Status:** design-only (no code changes, no deploy — this document is the deliverable)
-**Repo:** `Nexartis/homeport` (Apache-2.0) · **Linear:** TRUSTIP-45 · **Board row:** `yanez-bittensor-1.0-r3:homeport:implement`
+**Repo:** `Nexartis/homeport` (Nexartis Proprietary License) · **Linear:** TRUSTIP-45 · **Board row:** `yanez-bittensor-1.0-r3:homeport:implement`
 **Train:** `yanez-bittensor-1.0`, milestone **M1-foundation** · **Roadmap item:** P1-4
 **Author:** lane W2-45, yanez-phase2 wave · 2026-09-07
 **Recommended landing path:** `homeport/docs/design/TRUSTIP-45-subnet-performance-connector.md` (see §12 Target path)
@@ -42,7 +42,7 @@ When a chain read or extrinsic-observation path surfaces the `SubtensorModule.Be
 
 ### C4 — ADR-2026-08-09 alignment: reusable public-safe feature, canonical node = configured deployment
 
-The connector lands **in Homeport Apache-2.0 source as a reusable public-safe feature** under the ADR's demonstrated-gap clause — the operator-approved train IS the demonstrated gap (`yanez-bittensor-trust-monetization-2026-09-06.md:175`; `HO-2026-09-07-yanez-impl-handover.md:31`; ADR: `nexartis-system-architecture/decisions/ADR-2026-08-09-homeport-open-core-and-nanda-retirement.md`). Concretely: no Nexartis-only branding, no hardcoded SN34/BitMind specifics in source (the pilot subnet is a **deployment-config row** in `subnet_nodes`, §5), no proprietary secrets in the feature path, and the canonical Nexartis node is a *configured deployment* of this same source — **never a fork**. Any self-hoster can enable the connector via the same admin surface (§6.4).
+The connector lands **in Homeport proprietary source as a reusable public-safe feature** under the ADR's demonstrated-gap clause — the operator-approved train IS the demonstrated gap (`yanez-bittensor-trust-monetization-2026-09-06.md:175`; `HO-2026-09-07-yanez-impl-handover.md:31`; ADR: `nexartis-system-architecture/decisions/ADR-2026-08-09-homeport-open-core-and-nanda-retirement.md`). Concretely: no Nexartis-only branding, no hardcoded SN34/BitMind specifics in source (the pilot subnet is a **deployment-config row** in `subnet_nodes`, §5), no proprietary secrets in the feature path, and the canonical Nexartis node is a *configured deployment* of this same source — **never a fork**. Any self-hoster can enable the connector via the same admin surface (§6.4).
 
 ### C5 — Sequence: TRUSTIP-40 (deploy) → 45 → 46-design; 42/44 park until M0 human gates clear
 
@@ -346,7 +346,7 @@ Vitest unit + Playwright E2E per the repo's testing standard (`homeport/docs/TES
 | Adopt-don't-invent posture | `yanez-bittensor-trust-monetization-2026-09-06.md:96` |
 | Never settle in Alpha / wTAO bridge (out of scope) | `yanez-bittensor-trust-monetization-2026-09-06.md:164`, `:153` |
 | M1 exit criterion: certificate embeds subnet performance evidence, verifies offline | `train-seed-yanez-bittensor-1.0.json:32`; task row `:74`; TRUSTIP-40 criterion `:30` |
-| Homeport = Apache-2.0 SvelteKit 2/Svelte 5 on Cloudflare Workers, D1/R2/KV, Web Crypto Ed25519 | `harvest/04-homeport-gap.md:20` |
+| Homeport = Nexartis Proprietary SvelteKit 2/Svelte 5 on Cloudflare Workers, D1/R2/KV, Web Crypto Ed25519 | `harvest/04-homeport-gap.md:20` |
 | Portability caveat: no subnet ingestion, no independent anchor | `harvest/04-homeport-gap.md:73` |
 | Capability-3 gap row: needs subnet-data connector + external verifiability, effort M | `harvest/04-homeport-gap.md:89`, `:124` |
 | Certifier Wilson 95% CI + grades; VC issuance; revocation cascade | `harvest/04-homeport-gap.md:70`, `:47`, `:28` |
