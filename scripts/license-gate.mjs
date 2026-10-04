@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/ban-ts-comment -- generated twin carries an explained @ts-nocheck */
 // @ts-nocheck — generated twin; owner bin/ozzydev-license-gate.mjs is the type-check surface
 // GENERATED TWIN — do not edit. Owner: nexartis-ozzydev/bin/ozzydev-license-gate.mjs
 // owner_version: 1.0.0 · owner_sha256: d17f3066f256c28d5b65417a4696c3b8b4cf0c55d82540529141cb4b000872ad
