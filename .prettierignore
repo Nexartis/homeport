@@ -33,3 +33,4 @@ drizzle/migrations/
 static/openapi.json
 
 scripts/license-gate.mjs
+.github/workflows/license-context.yml
