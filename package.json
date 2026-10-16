@@ -1,7 +1,7 @@
 {
 	"name": "homeport",
 	"version": "1.0.0",
-	"license": "SEE LICENSE IN LICENSE",
+	"license": "Apache-2.0",
 	"description": "Homeport — the self-hostable NANDA node. Agent registry, trust, federation, and protocol switchboard on Cloudflare Workers.",
 	"private": true,
 	"type": "module",

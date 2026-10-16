@@ -1,7 +1,7 @@
 # Project Governance
 
 Homeport is stewarded by Nexartis, LLC and distributed under the
-Nexartis Proprietary License (All Rights Reserved). This document describes how
+Apache-2.0 License (All Rights Reserved). This document describes how
 decisions are made, how contributors earn additional responsibilities,
 and how substantial changes are reviewed.
 
