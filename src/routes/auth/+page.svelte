@@ -297,7 +297,11 @@
 
 					<!-- Error Message -->
 					{#if error && !loginSent}
-						<div class="rounded-xl border border-nanda-danger/20 bg-nanda-danger/10 px-4 py-3">
+						<div
+							role="alert"
+							aria-live="assertive"
+							class="rounded-xl border border-nanda-danger/20 bg-nanda-danger/10 px-4 py-3"
+						>
 							<p class="text-sm text-red-200">{error}</p>
 						</div>
 					{/if}
@@ -324,7 +328,9 @@
 										<div
 											class="h-4 w-4 animate-spin rounded-full border-2 border-nanda-primary/30 border-t-nanda-primary"
 										></div>
-										<p class="text-sm text-nanda-text-muted">{statusMessage}</p>
+										<p class="text-sm text-nanda-text-muted">
+											{statusMessage}
+										</p>
 									</div>
 									<p class="mt-2 text-center text-xs text-nanda-text-dim">
 										Checking every 2 seconds...
@@ -334,7 +340,11 @@
 
 							<!-- Polling Error -->
 							{#if error}
-								<div class="rounded-xl border border-nanda-danger/20 bg-nanda-danger/10 px-4 py-3">
+								<div
+									role="alert"
+									aria-live="assertive"
+									class="rounded-xl border border-nanda-danger/20 bg-nanda-danger/10 px-4 py-3"
+								>
 									<p class="mb-2 text-sm text-red-200">{error}</p>
 									<button
 										onclick={resetForm}
