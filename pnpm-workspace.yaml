@@ -23,7 +23,6 @@ minimumReleaseAgeExclude:
   - ws
   - yaml
 onlyBuiltDependencies:
-  - better-sqlite3
   - esbuild
   - sharp
   - svelte-preprocess

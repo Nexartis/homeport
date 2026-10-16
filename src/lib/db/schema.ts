@@ -1,8 +1,8 @@
 /**
  * Drizzle ORM Schema — nexartis-nanda-node
  *
- * Single source of truth for all 53 database tables across 21 domains.
- * Baseline migration: drizzle/migrations/0000_baseline.sql
+ * Single source of truth for all 57 database tables across 21 domains.
+ * Baseline migration: drizzle/migrations/0000_initial.sql
  *
  * Domains: Registry (3), Certifier (4), Compliance (3), Observer (3), Auditor (4),
  *   Developer Keys (1), Trust (3), Trust Framework (2), Webhooks (1), Versioning (1),
@@ -40,7 +40,7 @@ export const agentFacts = sqliteTable(
 		schemaVersion: text('schema_version').default('1.0.0'),
 		fetchedAt: integer('fetched_at').default(sql`(unixepoch())`),
 		updatedAt: integer('updated_at').default(sql`(unixepoch())`),
-		// ── AgentFacts v2 columns (P6 — migration 0013) ──
+		// ── AgentFacts v2 columns (P6 — baseline 0000_initial) ──
 		trustScore: real('trust_score'),
 		complianceStatus: text('compliance_status'),
 		complianceCheckedAt: text('compliance_checked_at'),

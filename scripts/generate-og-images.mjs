@@ -297,7 +297,7 @@ const PAGES = [
 		slug: 'docs-data-model',
 		title: 'Data Model',
 		section: 'Docs',
-		subtitle: '53-table Drizzle ORM schema across 21 domains — the NANDA node data architecture'
+		subtitle: '57-table Drizzle ORM schema across 21 domains — the NANDA node data architecture'
 	},
 	{
 		slug: 'docs-developers',
