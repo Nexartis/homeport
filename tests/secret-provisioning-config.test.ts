@@ -15,7 +15,14 @@ const REQUIRED_SHARED_SECRETS = [
 	['NANDA_FEDERATION_ADMIN_KEY', 'KYM_NANDA_FEDERATION_ADMIN_KEY']
 ] as const;
 
-const HOSTED_WRANGLER_ENVS = ['dev', 'test', 'prod'] as const;
+const HOSTED_WRANGLER_ENVS = [
+	'dev',
+	'nexartis',
+	'pegasus-horizon-breakthrough',
+	'test',
+	'prod',
+	'testnet'
+] as const;
 // Public OSS build: wrangler.jsonc ships with a placeholder store_id that the
 // operator (or Pegasus provisioning) rewrites at deploy time. cube.jsonc may
 // carry an operator-specific store_id for the shared Secrets Store; we assert
@@ -35,15 +42,14 @@ type CubeConfig = {
 	};
 };
 
+type WranglerEnv = {
+	secrets_store_secrets?: SecretBinding[];
+	vars?: Record<string, string>;
+	routes?: Array<{ pattern?: string; custom_domain?: boolean }>;
+};
+
 type WranglerConfig = {
-	env?: Partial<
-		Record<
-			(typeof HOSTED_WRANGLER_ENVS)[number],
-			{
-				secrets_store_secrets?: SecretBinding[];
-			}
-		>
-	>;
+	env?: Partial<Record<(typeof HOSTED_WRANGLER_ENVS)[number], WranglerEnv>>;
 };
 
 function escapeRegExp(value: string): string {
@@ -212,6 +218,34 @@ describe('secret provisioning config', () => {
 			expectSharedSecretBindings(wrangler.env?.[envName]?.secrets_store_secrets, {
 				storeId: WRANGLER_STORE_ID_PLACEHOLDER
 			});
+		}
+	});
+
+	it('declares SITE_OWNER_EMAIL in every wrangler environment', () => {
+		const wrangler = parseJsonc<WranglerConfig>(wranglerConfig);
+
+		for (const envName of HOSTED_WRANGLER_ENVS) {
+			const vars = wrangler.env?.[envName]?.vars;
+			expect(vars, `wrangler env ${envName} has no vars block`).toBeDefined();
+			expect(
+				vars?.SITE_OWNER_EMAIL,
+				`wrangler env ${envName} missing SITE_OWNER_EMAIL`
+			).toBeDefined();
+		}
+	});
+
+	it('keeps custom-domain environments out of development CORS mode', () => {
+		const wrangler = parseJsonc<WranglerConfig>(wranglerConfig);
+
+		for (const [envName, env] of Object.entries(wrangler.env ?? {})) {
+			const servesCustomDomain = (env?.routes ?? []).some(
+				(route) => route.custom_domain === true
+			);
+			if (!servesCustomDomain) continue;
+			expect(
+				env?.vars?.ENVIRONMENT,
+				`${envName} serves a custom domain but ENVIRONMENT=${env?.vars?.ENVIRONMENT ?? '(unset)'} — non-production CORS is a wildcard`
+			).toBe('production');
 		}
 	});
 

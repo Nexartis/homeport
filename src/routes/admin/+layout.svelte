@@ -127,7 +127,7 @@
 {/if}
 
 <!-- Three-panel layout (desktop) -->
-<div class="flex h-[calc(100vh-64px)] bg-nanda-bg">
+<div class="flex h-[calc(100vh-56px)] bg-nanda-bg">
 	<!-- LEFT SIDEBAR -->
 	<aside
 		class="hidden md:flex flex-col border-r border-nanda-border bg-nanda-bg-surface transition-all duration-200 {leftCollapsed
@@ -236,7 +236,7 @@
 	</aside>
 
 	<!-- CENTER PANEL -->
-	<main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+	<section class="flex-1 flex flex-col min-w-0 overflow-hidden">
 		<!-- Top bar -->
 		<div
 			class="hidden md:flex items-center justify-between border-b border-nanda-border px-4 py-2 bg-nanda-bg-surface flex-shrink-0"
@@ -248,7 +248,7 @@
 		<div class="flex-1 overflow-auto">
 			{@render children()}
 		</div>
-	</main>
+	</section>
 </div>
 
 <CommandPalette bind:open={commandPaletteOpen} />
