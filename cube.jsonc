@@ -175,7 +175,7 @@
 
 	// Database schema
 	"database": {
-		"tables": 53,
+		"tables": 57,
 		"domains": 21,
 		"migrations": "drizzle/migrations",
 		"schema": "src/lib/db/schema.ts"

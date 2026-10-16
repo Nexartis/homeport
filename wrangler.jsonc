@@ -117,8 +117,40 @@
 				}
 			],
 			"triggers": { "crons": ["0 * * * *"] },
+			"secrets_store_secrets": [
+				{
+					"binding": "KYM_NANDA_HMAC_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_HMAC_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_RADIUS_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_RADIUS_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_ED25519_PRIVATE_KEY_v1",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_ED25519_PRIVATE_KEY_v1"
+				},
+				{
+					"binding": "CRON_AUTH_TOKEN",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_CRON_AUTH_TOKEN"
+				},
+				{
+					"binding": "NANDA_FEDERATION_ADMIN_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_FEDERATION_ADMIN_KEY"
+				},
+				{
+					"binding": "RESEND_API_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "RESEND_API_KEY"
+				}
+			],
 			"vars": {
-				"ENVIRONMENT": "development",
+				"ENVIRONMENT": "production",
 				"LOG_LEVEL": "debug",
 				"NANDA_REGISTRY_URL": "https://homeport.nexartis.com",
 				"NANDA_ED25519_PUBLIC_KEY_v1": "",
@@ -159,6 +191,38 @@
 				}
 			],
 			"triggers": { "crons": ["0 * * * *"] },
+			"secrets_store_secrets": [
+				{
+					"binding": "KYM_NANDA_HMAC_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_HMAC_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_RADIUS_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_RADIUS_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_ED25519_PRIVATE_KEY_v1",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_ED25519_PRIVATE_KEY_v1"
+				},
+				{
+					"binding": "CRON_AUTH_TOKEN",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_CRON_AUTH_TOKEN"
+				},
+				{
+					"binding": "NANDA_FEDERATION_ADMIN_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_FEDERATION_ADMIN_KEY"
+				},
+				{
+					"binding": "RESEND_API_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "RESEND_API_KEY"
+				}
+			],
 			"vars": {
 				"ENVIRONMENT": "production",
 				"LOG_LEVEL": "info",
@@ -241,6 +305,7 @@
 				"NANDA_ED25519_PUBLIC_KEY_v1": "__PEGASUS_PROVISION__",
 				"SENTINEL_API_URL": "__PEGASUS_PROVISION__",
 				"VITE_BASE_URL": "__PEGASUS_PROVISION__",
+				"SITE_OWNER_EMAIL": "__PEGASUS_PROVISION__",
 				"FROM_EMAIL": "__PEGASUS_PROVISION__",
 				"NANDA_FEDERATION_PEER_URL": "__PEGASUS_PROVISION__",
 				"NANDA_NODE_ID": "__PEGASUS_PROVISION__",
@@ -353,6 +418,38 @@
 			"triggers": {
 				"crons": ["0 * * * *"]
 			},
+			"secrets_store_secrets": [
+				{
+					"binding": "KYM_NANDA_HMAC_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_HMAC_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_RADIUS_SECRET",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_RADIUS_SECRET"
+				},
+				{
+					"binding": "KYM_NANDA_ED25519_PRIVATE_KEY_v1",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_ED25519_PRIVATE_KEY_v1"
+				},
+				{
+					"binding": "CRON_AUTH_TOKEN",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_CRON_AUTH_TOKEN"
+				},
+				{
+					"binding": "NANDA_FEDERATION_ADMIN_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "KYM_NANDA_FEDERATION_ADMIN_KEY"
+				},
+				{
+					"binding": "RESEND_API_KEY",
+					"store_id": "__PEGASUS_PROVISION__",
+					"secret_name": "RESEND_API_KEY"
+				}
+			],
 			"vars": {
 				"ENVIRONMENT": "production",
 				"LOG_LEVEL": "debug",
@@ -360,6 +457,7 @@
 				"NANDA_ED25519_PUBLIC_KEY_v1": "",
 				"SENTINEL_API_URL": "__PEGASUS_PROVISION__",
 				"VITE_BASE_URL": "__PEGASUS_PROVISION__",
+				"SITE_OWNER_EMAIL": "__PEGASUS_PROVISION__",
 				"FROM_EMAIL": "__PEGASUS_PROVISION__",
 				"NANDA_FEDERATION_PEER_URL": "",
 				"NANDA_NODE_ID": "__PEGASUS_PROVISION__",
