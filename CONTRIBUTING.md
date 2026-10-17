@@ -112,6 +112,5 @@ Keep the summary line ≤72 characters, lower-case, no trailing period.
 
 ## License
 
-This is proprietary software owned by Nexartis, LLC. By contributing you agree
-that your contributions are works made for hire and that you assign all right,
-title, and interest in them to Nexartis, LLC — see [`LICENSE`](LICENSE).
+By contributing you agree that your contributions are licensed under
+the Apache License, Version 2.0 — see [`LICENSE`](LICENSE).
