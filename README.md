@@ -236,4 +236,4 @@ you are contributing with the help of a coding agent.
 
 ## License
 
-Apache-2.0 License (All Rights Reserved) — see [`LICENSE`](LICENSE) and [`LICENSE`](LICENSE). Copyright © 2026 Nexartis, LLC.
+Apache-2.0 — see [`LICENSE`](LICENSE). Copyright © 2026 Nexartis LLC.

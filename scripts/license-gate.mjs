@@ -2,7 +2,7 @@
 /* eslint-disable -- generated twin: the @ts-nocheck below is explained; the owner is the type-check surface */
 // @ts-nocheck — generated twin; owner bin/ozzydev-license-gate.mjs is the type-check surface
 // GENERATED TWIN — do not edit. Owner: nexartis-ozzydev/bin/ozzydev-license-gate.mjs
-// owner_version: 1.0.6 · owner_sha256: 9bc345902f0a831bd6820e11162814cf90f16d578e92ea4fb1744f82caf0c9a8
+// owner_version: 1.0.6 · owner_sha256: eb836d051428ff3c5a846083197497e894abe99fcb58a8067a9b61e32ec2c806
 /**
  * License gate — proprietary/copyright conformance gate (Fleet Hardening v1).
  *
@@ -832,11 +832,31 @@ export function runGate(repo = process.cwd()) {
 	}
 	// The required license text file depends on the license class: a proprietary
 	// repo carries LICENSES/LicenseRef-Nexartis-Proprietary.txt; an Apache-2.0
-	// repo (e.g. Homeport) carries LICENSES/Apache-2.0.txt.
+	// repo (e.g. Homeport) carries LICENSES/Apache-2.0.txt. The class is derived
+	// from the LICENSE pointer naming the Apache SPDX id / path / prose — a valid
+	// Apache pointer (`LICENSES/Apache-2.0.txt`) need not carry the prose "Apache
+	// License" (Codex P1, 2026-10-16).
 	const licBody = existsSync(lic) ? readFileSync(lic, 'utf8') : '';
-	const requiredTextPath = /Apache License/i.test(licBody)
-		? 'LICENSES/Apache-2.0.txt'
-		: PROPRIETARY_TEXT_PATH;
+	// The class follows the PRIMARY pointer, never an Apache mention anywhere in
+	// the body: a proprietary LICENSE that references an Apache-licensed
+	// dependency must not be reclassified (Codex P1, 2026-10-16). A body that
+	// names the proprietary ref is proprietary regardless of any Apache mention;
+	// otherwise the primary pointer (first non-blank, non-comment line) decides.
+	const namesProprietary = /LicenseRef-Nexartis-Proprietary/i.test(licBody);
+	const primaryPointer =
+		licBody
+			.split('\n')
+			.map((l) => l.trim())
+			.find((l) => l && !l.startsWith('#')) ?? '';
+	const isApache =
+		!namesProprietary && /Apache-2\.0|Apache License/i.test(primaryPointer || licBody);
+	const requiredTextPath = isApache ? 'LICENSES/Apache-2.0.txt' : PROPRIETARY_TEXT_PATH;
+	// The expected package.json `license` value follows the SAME detected class —
+	// never an unconditional either/or that lets a proprietary repo publish the
+	// materially more permissive `Apache-2.0` while its LICENSE stays proprietary
+	// (Codex P1, 2026-10-16).
+	const expectedPackageLicense = isApache ? APACHE_LICENSE_FIELD : NPM_LICENSE_FIELD;
+	const licenseClassLabel = isApache ? 'Apache-2.0' : 'proprietary';
 	for (const [p, cls] of [
 		[requiredTextPath, 'license_text_missing'],
 		['NOTICE', 'notice_missing'],
@@ -850,10 +870,10 @@ export function runGate(repo = process.cwd()) {
 	if (existsSync(pkgPath)) {
 		try {
 			const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-			if (pkg.license !== NPM_LICENSE_FIELD && pkg.license !== APACHE_LICENSE_FIELD) {
+			if (pkg.license !== expectedPackageLicense) {
 				findings.push({
 					class: 'package_license_field',
-					detail: `package.json license=${JSON.stringify(pkg.license ?? null)} (expected "${NPM_LICENSE_FIELD}" or "${APACHE_LICENSE_FIELD}")`
+					detail: `package.json license=${JSON.stringify(pkg.license ?? null)} (expected "${expectedPackageLicense}" for the detected ${licenseClassLabel} license class)`
 				});
 			}
 		} catch {
@@ -901,10 +921,10 @@ export function runGate(repo = process.cwd()) {
 			continue;
 		}
 		if (pkg.private === true) continue;
-		if (pkg.license !== NPM_LICENSE_FIELD && pkg.license !== APACHE_LICENSE_FIELD) {
+		if (pkg.license !== expectedPackageLicense) {
 			findings.push({
 				class: 'package_license_field',
-				detail: `${rel} license=${JSON.stringify(pkg.license ?? null)} (expected "${NPM_LICENSE_FIELD}" or "${APACHE_LICENSE_FIELD}")`
+				detail: `${rel} license=${JSON.stringify(pkg.license ?? null)} (expected "${expectedPackageLicense}" for the detected ${licenseClassLabel} license class)`
 			});
 		}
 	}
